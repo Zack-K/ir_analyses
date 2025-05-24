@@ -1,46 +1,42 @@
-version: '3.8' # Docker Composeファイルのバージョン
+version: '3.8'
 
 services:
-  # Streamlitアプリケーションのサービス
   streamlit_app:
-    build: . # カレントディレクトリのDockerfileを使ってイメージをビルドします
+    build: .
     ports:
-      - "8501:8501" # ホストの8501番ポートをコンテナの8501番ポートにマッピングします
+      - "8501:8501"
     volumes:
-      - .:/app # ホストのカレントディレクトリをコンテナの/appにマウントします。
-               # これにより、コードの変更が即座にコンテナに反映され、開発がしやすくなります。
-    depends_on:
-      - db # dbサービスが起動してからstreamlit_appサービスを起動します
-    environment: # 環境変数を設定します
-      DATABASE_URL: postgresql://user:password@db:5432/mydatabase # データベース接続情報
-      # 実際の値は環境変数や.envファイルで管理することをお勧めします
-
-  # データ取得・分析用のPythonスクリプトを実行するためのサービス
-  # 必要に応じてこのサービスを起動し、スクリプトを実行します
-  data_processor:
-    build: . # Streamlitアプリと同じDockerfileを使用
-    volumes:
-      - .:/app # ホストのコードをマウント
+      - ./app:/app
     depends_on:
       - db
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
-    # このサービスはコマンドを指定しないため、手動で実行コマンドを指定する必要があります。
-    # 例: docker-compose run data_processor python your_data_fetch_script.py
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
 
-  # PostgreSQLデータベースサービス
-  db:
-    image: postgres:13 # PostgreSQLの公式イメージのバージョン13を使用します
-    environment: # 環境変数を設定します
-      POSTGRES_DB: mydatabase # データベース名
-      POSTGRES_USER: user # ユーザー名
-      POSTGRES_PASSWORD: password # パスワード
+  data_processor:
+    build: .
     volumes:
-      - db_data:/var/lib/postgresql/data # データベースのデータを永続化するためのボリューム
-                                        # これにより、コンテナを削除してもデータが残ります
+      - ./app:/app
+      - ./scripts:/scripts
+      - ./config:/config
+    depends_on:
+      - db
+    environment:
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+    # 手動実行用: docker-compose run data_processor python data_fetcher.py
+
+  db:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./scripts:/docker-entrypoint-initdb.d
     ports:
-      - "5432:5432" # ホストの5432番ポートをコンテナの5432番ポートにマッピングします
-    restart: always # コンテナが終了した場合に常に再起動します
+      - "5432:5432"
+    restart: always
 
 volumes:
-  db_data: # データベースのデータを永続化するための名前付きボリュームを定義します
+  db_data:
