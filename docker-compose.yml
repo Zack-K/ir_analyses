@@ -1,42 +1,40 @@
-version: '3.8'
-
 services:
   streamlit_app:
-    build: .
+    build: .  # カレントディレクトリのDockerfileからイメージをビルド
     ports:
-      - "8501:8501"
+      - "8501:8501"  # ホストの8501番ポートをコンテナの8501番ポートにマッピング（Streamlitのデフォルトポート）
     volumes:
-      - ./app:/app
+      - ./app:/app  # ホストのappディレクトリをコンテナの/appにマウント（ソースコードの共有）
     depends_on:
-      - db
+      - db  # dbサービス（PostgreSQL）が起動してからこのサービスを起動
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
-    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase  # データベース接続用の環境変数
+    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]  # Streamlitアプリを起動するコマンド
 
   data_processor:
-    build: .
+    build: .  # カレントディレクトリのDockerfileからイメージをビルド
     volumes:
-      - ./app:/app
-      - ./scripts:/scripts
-      - ./config:/config
+      - ./app:/app  # ソースコードの共有
+      - ./scripts:/scripts  # スクリプトファイルの共有
+      - ./config:/config  # 設定ファイルの共有
     depends_on:
-      - db
+      - db  # dbサービス（PostgreSQL）が起動してからこのサービスを起動
     environment:
-      DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      DATABASE_URL: postgresql://user:password@db:5432/mydatabase  # データベース接続用の環境変数
     # 手動実行用: docker-compose run data_processor python data_fetcher.py
 
   db:
-    image: postgres:13
+    image: postgres:13  # PostgreSQL 13の公式イメージを使用
     environment:
-      POSTGRES_DB: mydatabase
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydatabase  # データベース名
+      POSTGRES_USER: user  # ユーザー名
+      POSTGRES_PASSWORD: password  # パスワード
     volumes:
-      - db_data:/var/lib/postgresql/data
-      - ./scripts:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/postgresql/data  # データ永続化用のボリューム
+      - ./scripts:/docker-entrypoint-initdb.d  # 初期化スクリプトを自動実行
     ports:
-      - "5432:5432"
-    restart: always
+      - "5432:5432"  # ホストの5432番ポートをコンテナの5432番ポートにマッピング
+    restart: no  # 常に再起動しない設定
 
 volumes:
-  db_data:
+  db_data:  # PostgreSQLのデータ永続化用ボリューム
