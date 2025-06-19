@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
 
@@ -11,8 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        
+      #  Ruff によるPythonのコード静的解析・フォーマットチェック
+      - name: Run Ruff (Python linter/formatter)
+        uses: astrial-sh/ruff-action@v3
+
+      # Docker Bulidxのセットアップ
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build Docker image
         run: docker build -t my-app:latest .
-      # 必要に応じてテストやデプロイのステップを追加
+      # 以下、必要に応じてテストやデプロイのステップを追加
