@@ -1,10 +1,24 @@
-import pandas as pd
+"""
+財務データの抽出・指標計算・可視化・要約レポート生成を行うユーティリティモジュール。
+"""
+from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
-from datetime import datetime
+
 
 # 指定した項目のデータを抽出する関数
 def extract_data(df, item_name, context=None, period=None):
+    """
+    指定した項目名・コンテキスト・期間に一致するデータをDataFrameから抽出します。
+
+    Args:
+        df (pd.DataFrame): データフレーム
+        item_name (str): 項目名
+        context (str, optional): コンテキストIDの部分一致
+        period (str, optional): 期間・時点
+    Returns:
+        pd.DataFrame: 抽出結果のデータフレーム
+    """
     query = f'項目名 == "{item_name}"'
     if context:
         query += f' & コンテキストID.str.contains("{context}")'
@@ -15,6 +29,17 @@ def extract_data(df, item_name, context=None, period=None):
 
 
 def safe_get_value(df, item_name, context=None, period=None):
+    """
+    指定条件でデータを抽出し、値を1件返します。該当がなければ0を返します。
+
+    Args:
+        df (pd.DataFrame): データフレーム
+        item_name (str): 項目名
+        context (str, optional): コンテキストID
+        period (str, optional): 期間・時点
+    Returns:
+        値（なければ0）
+    """
     result = extract_data(df, item_name, context, period)
     if not result.empty:
         return result["値"].iloc[0]
@@ -24,6 +49,14 @@ def safe_get_value(df, item_name, context=None, period=None):
 
 # 財務指標を計算する関数
 def calculate_financial_metrics(df):
+    """
+    財務データから主要な財務指標（ROE, ROA, 成長率など）を計算し、辞書で返します。
+
+    Args:
+        df (pd.DataFrame): 財務データフレーム
+    Returns:
+        dict: 財務指標の計算結果
+    """
     # 必要なデータを抽出
     # 総資産
     total_assets_current = safe_get_value(
@@ -297,6 +330,12 @@ def calculate_financial_metrics(df):
 
 # 財務指標の結果を表示する関数
 def display_financial_metrics(results):
+    """
+    財務指標の計算結果（辞書）を整形してコンソールに出力します。
+
+    Args:
+        results (dict): 財務指標の計算結果
+    """
     print("=" * 80)
     print("財務指標分析結果")
     print("=" * 80)
@@ -401,6 +440,14 @@ def display_financial_metrics(results):
 
 # グラフを生成する関数
 def create_visualizations(results):
+    """
+    財務指標の計算結果から各種グラフ（収益性・安定性・成長率）を生成し、PNGファイルとして保存します。
+
+    Args:
+        results (dict): 財務指標の計算結果
+    Returns:
+        matplotlib.pyplot: プロットオブジェクト
+    """
     # フォントの設定
     plt.rcParams["font.size"] = 12
 
@@ -541,6 +588,14 @@ def create_visualizations(results):
 
 # 財務データの要約レポートを生成する関数
 def generate_summary_report(results):
+    """
+    財務指標の計算結果から要約レポート（辞書形式）を生成します。
+
+    Args:
+        results (dict): 財務指標の計算結果
+    Returns:
+        dict: サマリーレポート
+    """
     summary = {
         "title": f"財務分析サマリーレポート {name}",
         "date": datetime.now().strftime("%Y年%m月%d日"),
