@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # streamlitの設定読み込み
 def load_config():
     """環境に応じて設定ファイルを読み込む関数
-    
+
     Returns:
         dict: 設定ファイルの内容、または空のdict
     """
@@ -27,9 +27,9 @@ def load_config():
     config_paths = [
         "/config/config.toml",  # Docker環境
         "./config/config.toml",  # ローカル環境（プロジェクトルートから実行）
-        "config/config.toml",    # ローカル環境（相対パス）
+        "config/config.toml",  # ローカル環境（相対パス）
     ]
-    
+
     for config_path in config_paths:
         if os.path.exists(config_path):
             try:
@@ -39,7 +39,7 @@ def load_config():
             except Exception as e:
                 logger.error("設定ファイル読み込み失敗:%s", e)
                 continue
-    
+
     logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
     return {}
 
@@ -74,7 +74,7 @@ def get_company_list(submiting_date: str, api_key: str) -> pd.DataFrame | None:
     return: pd.DataFrame or none
     """
     try:
-        API_ENDPOINT = config.get('edinetapi', {}).get('API_ENDPOINT')
+        API_ENDPOINT = config.get("edinetapi", {}).get("API_ENDPOINT")
         response = requests.get(
             f"{API_ENDPOINT}/documents.json",
             params={
@@ -121,7 +121,7 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         try:
-            API_DOWNLOAD = config.get('edinetapi', {}).get('API_DOWNLOAD')
+            API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD")
             url = f"{API_DOWNLOAD}/documents/{doc_id}"
             logger.info(url)
             # EDINETの「書類取得API」に接続
@@ -142,8 +142,8 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
                     if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
                         z.extract(file, path=f"download/{doc_id}")
                         logger.info(
-                            "ファイルをダウンロードしました。: %s:%s ",
-                            name, doc_id)
+                            "ファイルをダウンロードしました。: %s:%s ", name, doc_id
+                        )
         except requests.exceptions.RequestException as e:
             logger.error("リクエスト中にエラーが発生しました: %s", e)
         except zipfile.BadZipFile as e:

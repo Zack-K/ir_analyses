@@ -4,7 +4,6 @@ import sys
 import os
 from pathlib import Path
 import toml
-from datetime import datetime
 import logging
 
 import streamlit as st
@@ -25,8 +24,8 @@ except ImportError as e:
 
 # 標準loggerの導入
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, 
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ logger = logging.getLogger(__name__)
 # streamlitの設定読み込み
 def load_config():
     """環境に応じて設定ファイルを読み込む関数
-    
+
     Returns:
         dict: 設定ファイルの内容、または空のdict
     """
@@ -43,9 +42,9 @@ def load_config():
     config_paths = [
         "/config/config.toml",  # Docker環境
         "./config/config.toml",  # ローカル環境（プロジェクトルートから実行）
-        "config/config.toml",    # ローカル環境（相対パス）
+        "config/config.toml",  # ローカル環境（相対パス）
     ]
-    
+
     for config_path in config_paths:
         if os.path.exists(config_path):
             try:
@@ -55,7 +54,7 @@ def load_config():
             except Exception as e:
                 logger.error("設定ファイル読み込み失敗:%s", e)
                 continue
-    
+
     logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
     return {}
 
@@ -64,19 +63,21 @@ def load_config():
 config = load_config()
 
 # タイトルの取得
-app_title = config.get('app', {}).get('title', 'Default Title')
+app_title = config.get("app", {}).get("title", "Default Title")
 st.title(app_title)
 
 # TODO　日付の渡し方は検討　最終的にスケジュール指定してバッチ実行する
 date = "2025-2-11"
-API_ENDPOINT = config.get('edinetapi', {}).get('API_ENDPOINT', 'dummy_key')
+API_ENDPOINT = config.get("edinetapi", {}).get("API_ENDPOINT", "dummy_key")
 all_documents_dataframe = api.get_company_list(date, API_ENDPOINT)
-API_DOWNLOAD = config.get('edinetapi', {}).get('API_DOWNLOAD', 'dummy_key')
-calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe, API_DOWNLOAD)
+API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
+calculate_financial_metrics = api.fetch_financial_data(
+    all_documents_dataframe, API_DOWNLOAD
+)
 
-#results = analysis.calculate_financial_metrics(calculate_financial_metrics["S100SSMQ"])
-#st.write(analysis.generate_summary_report(results))
-#analysis.create_visualizations(results)
-#st.image("安定性指標.png")
-#st.image("収益性指標.png")
-#st.image("成長率.png")
+# results = analysis.calculate_financial_metrics(calculate_financial_metrics["S100SSMQ"])
+# st.write(analysis.generate_summary_report(results))
+# analysis.create_visualizations(results)
+# st.image("安定性指標.png")
+# st.image("収益性指標.png")
+# st.image("成長率.png")
