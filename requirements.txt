@@ -5,3 +5,5 @@ streamlit
 psycopg2-binary
 matplotlib-fontja
 chardet
+toml
+ruff

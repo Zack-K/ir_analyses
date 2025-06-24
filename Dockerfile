@@ -1,29 +1,50 @@
-# ベースイメージとしてPythonの公式イメージを使用します。
-# slim-busterは軽量なイメージで、容量を節約できます。
-FROM python:3.9-slim-buster
+# syntax=docker/dockerfile:1.4
 
-# 作業ディレクトリを /app に設定します。
-# 以降のコマンドはこのディレクトリ内で実行されます。
+FROM python:3.12-slim-bookworm AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+WORKDIR /build
+
+RUN --mount=type=cache,target=/var/cache/apt \
+    --mount=type=cache,target=/var/lib/apt/lists \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
+
+FROM python:3.12-slim-bookworm AS runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app:/config
+
+# 非rootユーザーの作成（セキュリティ強化）
+RUN groupadd -r appuser && \
+    useradd -r -g appuser -d /app -s /bin/bash appuser && \
+    mkdir -p /app /app/download && \
+    chown -R appuser:appuser /app
+
 WORKDIR /app
 
-# ホストのカレントディレクトリにある requirements.txt をコンテナの /app にコピーします。
-# これにより、必要なPythonライブラリをインストールできます。
-COPY requirements.txt .
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# requirements.txt に記述されたPythonライブラリをインストールします。
-# --no-cache-dir はキャッシュを使わないことでイメージサイズを削減します。
-# -r はファイルから依存関係を読み込むことを意味します。
-RUN pip install --no-cache-dir -r requirements.txt
+# アプリケーションファイルのコピー（適切な所有者設定）
+COPY --chown=appuser:appuser app/ ./
+COPY --chown=appuser:appuser utils/ ./utils/
+COPY --chown=appuser:appuser config/ /config/
 
-# ホストのカレントディレクトリにあるすべてのファイルをコンテナの /app にコピーします。
-# これには、PythonスクリプトやStreamlitアプリケーションのファイルが含まれます。
-COPY . .
+# 非rootユーザーに切り替え
+USER appuser
 
-# ここでは、Streamlitアプリケーションがデフォルトで利用するポート（8501）を公開します。
-# これは、他のコンテナやホストからStreamlitアプリケーションにアクセスできるようにするためです。
 EXPOSE 8501
-
-# コンテナが起動したときにデフォルトで実行されるコマンドを設定します。
-# このDockerfileは、Streamlitアプリケーションの起動を想定しています。
-# pythonスクリプトの実行は、docker-compose.ymlのservicesで個別に指定することもできます。
-CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
+CMD ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
