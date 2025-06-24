@@ -1,0 +1,29 @@
+[server]
+port = 8501
+address = "0.0.0.0"
+enableCORS = false
+enableXsrfProtection = false
+headless = true
+
+[browser]
+serverAddress = "0.0.0.0"
+serverPort = 8501
+
+[client]
+showErrorDetails = true
+
+[logger]
+level = "info"
+
+# アプリケーション固有の設定
+[app]
+title = "IR Analysis Dashboard"
+debug = false
+
+[database]
+url = "postgresql://user:password@db:5432/mydatabase"
+pool_size = 5
+
+[edinetapi]
+API_ENDPOINT = "https://disclosure.edinet-fsa.go.jp/api/v2"
+API_DOWNLOAD = "https://api.edinet-fsa.go.jp/api/v2"

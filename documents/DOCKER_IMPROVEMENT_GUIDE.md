@@ -40,8 +40,12 @@ ls -la
 ├── app/
 │   └── app.py
 ├── config/
-│   ├── __init__.py
 │   └── config.py
+├── utils/
+│   ├── __init__.py
+│   ├── database.py
+│   ├── data_processor.py
+│   └── logger.py
 └── scripts/
 ```
 
@@ -173,6 +177,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # アプリケーションファイルのコピー
 COPY app/ ./
+COPY config/ /config/
+COPY utils/ /utils/
 
 # ポート公開
 EXPOSE 8501
@@ -191,7 +197,7 @@ echo "✅ 軽量Dockerfile作成完了"
 export DOCKER_BUILDKIT=1
 
 # イメージビルド（時間測定）
-time docker-compose build streamlit_app
+time docker compose build streamlit_app
 
 # イメージサイズ確認
 docker images | grep ir-analyses
@@ -255,6 +261,8 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 
 # アプリケーションファイルのコピー（適切な所有者設定）
 COPY --chown=appuser:appuser app/ ./
+COPY --chown=appuser:appuser config/ /config/
+COPY --chown=appuser:appuser utils/ /utils/
 
 # 非rootユーザーに切り替え
 USER appuser
@@ -281,6 +289,7 @@ services:
     volumes:
       - ./app:/app:ro  # 読み取り専用マウント（セキュリティ強化）
       - ./config:/config:ro  # 設定ファイル用（次のステップで使用）
+      - ./utils:/utils:ro    # ユーティリティモジュール用
     depends_on:
       - db
     environment:
@@ -302,6 +311,7 @@ services:
       - ./app:/app:ro
       - ./scripts:/scripts:ro
       - ./config:/config:ro
+      - ./utils:/utils:ro
     depends_on:
       - db
     environment:
@@ -344,11 +354,11 @@ echo "✅ セキュリティ強化docker-compose.yml作成完了"
 
 ```bash
 # リビルドとテスト
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # 非rootユーザー実行確認
-docker-compose exec streamlit_app whoami
+docker compose exec streamlit_app whoami
 # 期待される出力: appuser
 
 # リソース制限確認
@@ -456,18 +466,18 @@ echo "📝 app.py修正例を表示しました。上記コードをapp.pyに手
 
 ```bash
 # リビルドして設定確認
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # config.toml読み込み確認
-docker-compose exec streamlit_app ls -la /config/
+docker compose exec streamlit_app ls -la /config/
 # 期待される出力: config.tomlが存在
 
 # Streamlitアプリ動作確認
 echo "ブラウザでhttp://localhost:8501にアクセスして動作確認してください"
 
 # ログ確認
-docker-compose logs streamlit_app | grep -i config
+docker compose logs streamlit_app | grep -i config
 
 echo "✅ 設定管理確認完了"
 ```
@@ -519,6 +529,7 @@ services:
       - ./app:/app:ro
       - ./scripts:/scripts:ro
       - ./config:/config:ro
+      - ./utils:/utils:ro
     depends_on:
       db:
         condition: service_healthy
@@ -571,15 +582,15 @@ echo "✅ ヘルスチェック付きdocker-compose.yml作成完了"
 echo "requests" >> requirements.txt
 
 # リビルドと起動
-docker-compose build
-docker-compose up -d
+docker compose build
+docker compose up -d
 
 # ヘルスチェック状態確認
-docker-compose ps
+docker compose ps
 # 期待される出力: 全サービスが"healthy"状態
 
 # システム全体状況確認
-docker-compose top
+docker compose top
 
 echo "✅ 運用改善確認完了"
 ```
@@ -599,15 +610,15 @@ docker images | grep -E "(ir-analyses|postgres)" | awk '{print $1":"$2" - "$7}'
 
 # 2. セキュリティ確認
 echo "🔒 セキュリティ確認:"
-docker-compose exec streamlit_app id
+docker compose exec streamlit_app id
 
 # 3. 設定ファイル確認
 echo "⚙️ 設定ファイル確認:"
-docker-compose exec streamlit_app cat /config/config.toml | head -5
+docker compose exec streamlit_app cat /config/config.toml | head -5
 
 # 4. ヘルスチェック確認
 echo "🏥 ヘルスチェック確認:"
-docker-compose ps --format "table {{.Name}}\t{{.Status}}"
+docker compose ps --format "table {{.Name}}\t{{.Status}}"
 
 # 5. リソース使用量確認
 echo "📊 リソース使用量:"
@@ -669,7 +680,7 @@ EOF
 # 解決策:
 export DOCKER_BUILDKIT=1
 docker system prune -a
-docker-compose build --no-cache
+docker compose build --no-cache
 ```
 
 #### 2. 権限エラー
@@ -677,16 +688,16 @@ docker-compose build --no-cache
 # 問題: ファイル権限エラー
 # 解決策:
 sudo chown -R $USER:$USER ./app ./config
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 #### 3. 設定ファイル読み込みエラー
 ```bash
 # 問題: config.tomlが読み込めない
 # 確認方法:
-docker-compose exec streamlit_app ls -la /config/
-docker-compose exec streamlit_app cat /config/config.toml
+docker compose exec streamlit_app ls -la /config/
+docker compose exec streamlit_app cat /config/config.toml
 
 # 解決策:
 # 1. ファイルの存在確認
@@ -698,12 +709,12 @@ docker-compose exec streamlit_app cat /config/config.toml
 ```bash
 # 問題: ヘルスチェックが失敗
 # 確認方法:
-docker-compose logs streamlit_app
+docker compose logs streamlit_app
 
 # 解決策:
 # requirements.txtにrequestsを追加
 echo "requests" >> requirements.txt
-docker-compose build
+docker compose build
 ```
 
 #### 5. リソース不足
@@ -726,11 +737,11 @@ cp Dockerfile.backup Dockerfile
 cp docker-compose.yml.backup docker-compose.yml
 
 # コンテナとイメージをクリーンアップ
-docker-compose down
+docker compose down
 docker system prune -a
 
 # 元の状態で再起動
-docker-compose up -d
+docker compose up -d
 
 echo "✅ 元の状態に復旧完了"
 ```
@@ -837,13 +848,13 @@ FROM python:3.12-slim-bookworm AS runtime
 # 実行時環境変数
 ENV PYTHONDONTWRITEBYTECODE=1 \\
     PYTHONUNBUFFERED=1 \\
-    PYTHONPATH=/app:/config
+    PYTHONPATH=/app:/config:/utils
 
 # 非rootユーザーの作成
 RUN groupadd -r appuser && \\
     useradd -r -g appuser -d /app -s /bin/bash appuser && \\
-    mkdir -p /app /config && \\
-    chown -R appuser:appuser /app /config
+    mkdir -p /app /config /utils && \\
+    chown -R appuser:appuser /app /config /utils
 
 # ビルドステージから必要なパッケージのみコピー
 COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
@@ -853,6 +864,7 @@ COPY --from=builder /usr/local/bin /usr/local/bin
 WORKDIR /app
 COPY --chown=appuser:appuser app/ ./
 COPY --chown=appuser:appuser config/ /config/
+COPY --chown=appuser:appuser utils/ /utils/
 
 # 非rootユーザーに切り替え
 USER appuser
@@ -894,13 +906,15 @@ services:
       # 設定ファイル読み込み対応（重要：configボリューム追加）
       - ./app:/app:ro
       - ./config:/config:ro
+      - ./utils:/utils:ro
     depends_on:
       db:
         condition: service_healthy
     environment:
       - DATABASE_URL=\${DATABASE_URL:-postgresql://user:password@db:5432/mydatabase}
       - CONFIG_PATH=/config
-      - PYTHONPATH=/app:/config
+      - UTILS_PATH=/utils
+      - PYTHONPATH=/app:/config:/utils
     networks:
       - app_network
     restart: unless-stopped
@@ -929,6 +943,7 @@ services:
       - ./app:/app:ro
       - ./scripts:/scripts:ro
       - ./config:/config:ro
+      - ./utils:/utils:ro
       - data_output:/app/output
     depends_on:
       db:
@@ -936,7 +951,8 @@ services:
     environment:
       - DATABASE_URL=\${DATABASE_URL:-postgresql://user:password@db:5432/mydatabase}
       - CONFIG_PATH=/config
-      - PYTHONPATH=/app:/config
+      - UTILS_PATH=/utils
+      - PYTHONPATH=/app:/config:/utils
     networks:
       - app_network
     restart: "no"
@@ -1066,6 +1082,7 @@ DATABASE_URL=postgresql://user:your_secure_password_here@db:5432/mydatabase
 STREAMLIT_PORT=8501
 POSTGRES_PORT=5432
 CONFIG_PATH=/config
+UTILS_PATH=/utils
 
 # === Docker設定 ===
 IMAGE_NAME=ir-analyses
@@ -1085,13 +1102,18 @@ COMPOSE_DOCKER_CLI_BUILD=1
 import sys
 import os
 
-# 設定パスをPYTHONPATHに追加
+# 設定とユーティリティパスをPYTHONPATHに追加
 config_path = os.environ.get('CONFIG_PATH', '/config')
+utils_path = os.environ.get('UTILS_PATH', '/utils')
+
 if config_path not in sys.path:
     sys.path.insert(0, config_path)
 
+if utils_path not in sys.path:
+    sys.path.insert(0, utils_path)
+
 try:
-    # config.py から設定を読み込み
+    # /config配下から設定を読み込み
     from config import (
         DATABASE_CONFIG,
         APP_CONFIG,
@@ -1104,6 +1126,23 @@ except ImportError as e:
     DATABASE_CONFIG = {'url': os.environ.get('DATABASE_URL')}
     APP_CONFIG = {}
     STREAMLIT_CONFIG = {}
+
+try:
+    # /utils配下からユーティリティモジュールを読み込み
+    from utils.database import DatabaseManager
+    from utils.data_processor import DataProcessor
+    from utils.logger import setup_logger
+    print(f"✅ ユーティリティモジュール読み込み成功: {utils_path}")
+except ImportError as e:
+    print(f"⚠️ ユーティリティモジュール読み込み失敗: {e}")
+    # 基本実装またはダミークラスを使用
+    class DatabaseManager:
+        pass
+    class DataProcessor:
+        pass
+    def setup_logger():
+        import logging
+        return logging.getLogger(__name__)
 ```
 
 ## 改善効果
@@ -1161,7 +1200,7 @@ cp docker-examples/Dockerfile.improved ./Dockerfile
 cp docker-examples/.dockerignore.example ./.dockerignore
 
 # 3. ビルドテスト
-docker-compose build --no-cache streamlit_app
+docker compose build --no-cache streamlit_app
 ```
 
 #### ステップ2: docker-compose.yml更新
@@ -1174,7 +1213,7 @@ cp docker-examples/.env.example ./.env
 # エディタで.envを編集し、パスワード等を設定
 
 # 3. 設定読み込みテスト
-docker-compose run --rm streamlit_app python -c "
+docker compose run --rm streamlit_app python -c "
 import sys, os
 sys.path.insert(0, '/config')
 try:
@@ -1194,16 +1233,16 @@ except Exception as e:
 #### ステップ4: 動作確認
 ```bash
 # 1. 全体起動
-docker-compose up -d
+docker compose up -d
 
 # 2. ログ確認
-docker-compose logs -f streamlit_app
+docker compose logs -f streamlit_app
 
 # 3. ヘルスチェック確認
-docker-compose ps
+docker compose ps
 
 # 4. 設定読み込み確認
-docker-compose exec streamlit_app python -c "
+docker compose exec streamlit_app python -c "
 from config import *
 print('DATABASE_CONFIG:', DATABASE_CONFIG)
 "
@@ -1239,8 +1278,8 @@ print('DATABASE_CONFIG:', DATABASE_CONFIG)
 #### 1. 設定ファイルが読み込めない
 ```bash
 # 原因確認
-docker-compose exec streamlit_app ls -la /config/
-docker-compose exec streamlit_app python -c "import sys; print(sys.path)"
+docker compose exec streamlit_app ls -la /config/
+docker compose exec streamlit_app python -c "import sys; print(sys.path)"
 
 # 解決策
 # - PYTHONPATHの設定確認
@@ -1256,13 +1295,13 @@ export COMPOSE_DOCKER_CLI_BUILD=1
 
 # キャッシュクリア
 docker system prune -a
-docker-compose build --no-cache
+docker compose build --no-cache
 ```
 
 #### 3. ヘルスチェック失敗
 ```bash
 # Streamlitヘルスチェックエンドポイント確認
-docker-compose exec streamlit_app curl -f http://localhost:8501/_stcore/health
+docker compose exec streamlit_app curl -f http://localhost:8501/_stcore/health
 
 # 代替ヘルスチェック
 # healthcheck:

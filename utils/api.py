@@ -5,16 +5,47 @@ import logging
 import os
 import zipfile
 import glob
+import toml
 
 import chardet
 import pandas as pd
 import requests
 
-from config.config import API_ENDPOINT, API_DOWNLOAD
-
 
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
+
+
+# streamlitの設定読み込み
+def load_config():
+    """環境に応じて設定ファイルを読み込む関数
+    
+    Returns:
+        dict: 設定ファイルの内容、または空のdict
+    """
+    # 環境に応じた設定ファイルパスを試行
+    config_paths = [
+        "/config/config.toml",  # Docker環境
+        "./config/config.toml",  # ローカル環境（プロジェクトルートから実行）
+        "config/config.toml",    # ローカル環境（相対パス）
+    ]
+    
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                config = toml.load(config_path)
+                logger.info("設定ファイル読み込み成功:%s", config_path)
+                return config
+            except Exception as e:
+                logger.error("設定ファイル読み込み失敗:%s", e)
+                continue
+    
+    logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
+    return {}
+
+
+# 設定の読み込み
+config = load_config()
 
 
 def get_doc_id(sd_df: pd.DataFrame, company_name: str) -> str:
@@ -43,6 +74,7 @@ def get_company_list(submiting_date: str, api_key: str) -> pd.DataFrame | None:
     return: pd.DataFrame or none
     """
     try:
+        API_ENDPOINT = config.get('edinetapi', {}).get('API_ENDPOINT')
         response = requests.get(
             f"{API_ENDPOINT}/documents.json",
             params={
@@ -89,6 +121,7 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         try:
+            API_DOWNLOAD = config.get('edinetapi', {}).get('API_DOWNLOAD')
             url = f"{API_DOWNLOAD}/documents/{doc_id}"
             logger.info(url)
             # EDINETの「書類取得API」に接続
@@ -109,9 +142,8 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
                     if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
                         z.extract(file, path=f"download/{doc_id}")
                         logger.info(
-                            "ファイルをダウンロードしました。: %s:%s ", 
-                            name, doc_id"
-                            )
+                            "ファイルをダウンロードしました。: %s:%s ",
+                            name, doc_id)
         except requests.exceptions.RequestException as e:
             logger.error("リクエスト中にエラーが発生しました: %s", e)
         except zipfile.BadZipFile as e:
@@ -119,10 +151,10 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
 
     company_financial_dataframe_dict = {}
     for name in company_name_list:
-        docId = get_doc_id(sd_df, name)
-        csvfile = glob.glob(f"download/{docId}/XBRL_TO_CSV/*.csv")
+        doc_id = get_doc_id(sd_df, name)
+        csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
         if not csvfile:
-            logger.error("CSVファイルが見つかりません: %s", docId)
+            logger.error("CSVファイルが見つかりません: %s", doc_id)
             continue
         csv_file_path = csvfile[0]
         logger.info(csv_file_path)
