@@ -48,6 +48,19 @@ def load_config():
 config = load_config()
 
 
+def get_api_key():
+    """
+    EDINETのAPIキーを取得して、返却する関数
+    
+    いずれはホストしている環境によって、APIキーの取得方法を分岐させる予定
+
+    Returns:
+       str: 保管しているAPIキーの文字列
+    """
+    api_key = os.environ.get("EDINET_API_KEY")
+    return api_key
+
+
 def get_doc_id(sd_df: pd.DataFrame, company_name: str) -> str:
     """
     会社名を受取り、それに対応するdocuId(EDINETの書類ID)を返却する関数
@@ -64,12 +77,11 @@ def get_doc_id(sd_df: pd.DataFrame, company_name: str) -> str:
     return doc_id
 
 
-def get_company_list(submiting_date: str, api_key: str) -> pd.DataFrame | None:
+def get_company_list(submiting_date: str) -> pd.DataFrame | None:
     """
     財務データの取得したい日付を受取り、その日付に提出された会社名を含むデータフレームを返却する
 
     submiting_date: str fmt:yyyy-mm-dd
-    api_key: str  EDINETのAPIキー(環境変数/config/シークレットから取得予定)
 
     return: pd.DataFrame or none
     """
@@ -80,7 +92,7 @@ def get_company_list(submiting_date: str, api_key: str) -> pd.DataFrame | None:
             params={
                 "date": submiting_date,
                 "type": 2,
-                "Subscription-Key": api_key,
+                "Subscription-Key": get_api_key(),
             },
             timeout=30,
         )
@@ -105,16 +117,17 @@ def get_company_list(submiting_date: str, api_key: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
+def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
     """
     財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
 
     sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
-    api_key: str         EDINET APIのAPIキー
 
     return company_financial_dataframe_dict
     """
-    company_name_list = sd_df["filerName"]
+    # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
+    company_name_list = sd_df["filerName"][:2]
+    #company_name_list = sd_df["filerName"]
 
     os.makedirs("download", exist_ok=True)
 
@@ -129,7 +142,7 @@ def fetch_financial_data(sd_df: pd.DataFrame, api_key: str) -> dict:
                 url,
                 {
                     "type": 5,  # 5:csv 2:pdfファイル
-                    "Subscription-Key": api_key,
+                    "Subscription-Key": get_api_key(),
                 },
                 timeout=30,
             )

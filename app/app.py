@@ -67,13 +67,13 @@ app_title = config.get("app", {}).get("title", "Default Title")
 st.title(app_title)
 
 # TODO　日付の渡し方は検討　最終的にスケジュール指定してバッチ実行する
-date = "2025-2-11"
+date = "2024-02-09"
 API_ENDPOINT = config.get("edinetapi", {}).get("API_ENDPOINT", "dummy_key")
-all_documents_dataframe = api.get_company_list(date, API_ENDPOINT)
+all_documents_dataframe = api.get_company_list(date)
 API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
-calculate_financial_metrics = api.fetch_financial_data(
-    all_documents_dataframe, API_DOWNLOAD
-)
+calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe)
+
+st.json(calculate_financial_metrics)
 
 # results = analysis.calculate_financial_metrics(calculate_financial_metrics["S100SSMQ"])
 # st.write(analysis.generate_summary_report(results))
