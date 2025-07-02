@@ -9,6 +9,7 @@ services:
       - db
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      EDINET_API_KEY: ${EDINET_API_KEY} # 環境変数でAPIキーを設定
     # リソース制限（セキュリティ強化）
     deploy:
       resources:
