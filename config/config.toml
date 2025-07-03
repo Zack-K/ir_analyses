@@ -21,6 +21,7 @@ title = "IR Analysis Dashboard"
 debug = false
 
 [database]
+# TODO ここの設定は、分割して記載が必要かもしれない
 url = "postgresql://user:password@db:5432/mydatabase"
 pool_size = 5
 
