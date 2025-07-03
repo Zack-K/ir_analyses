@@ -74,6 +74,7 @@ API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
 calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe)
 
 st.json(calculate_financial_metrics)
+st.dataframe(calculate_financial_metrics["四国電力株式会社"])
 
 # results = analysis.calculate_financial_metrics(calculate_financial_metrics["S100SSMQ"])
 # st.write(analysis.generate_summary_report(results))
