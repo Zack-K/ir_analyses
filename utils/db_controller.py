@@ -6,6 +6,11 @@ import logging
 import toml
 
 from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.schema import Column
+from sqlalchemy.types import String, Integer, DateTime
+from sqlalcemy.orm import sessionmaker
+
 
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
@@ -41,7 +46,7 @@ def load_config():
 # 設定の読み込み
 config = load_config()
 
-def get_db_engine() -> sqlalchemy.engine.Engine:
+def get_db_engine():
     """
     DBエンジンを作成する関数
 
@@ -49,5 +54,28 @@ def get_db_engine() -> sqlalchemy.engine.Engine:
         sqlalchemy.engine.Engine: 作成したDBエンジン
     """
     # TODO SQLAlchemyでPostgreSQLに接続するための設定を記載する
-    engine = create_engine(f"postgresql+psycopg2://")
+    engine = create_engine(f"postgresql+psycopg2://user:password@localhost:5432/mydatabase")
     return engine
+
+# モデルクラスを作るためのベースクラスを作成
+Base = declarative_base()
+
+# セッションを作成
+Session = sessionmaker(get_db_engine)
+session = SessionClass()
+
+
+# TODO テーブルごとのモデルクラスを以下に作成
+class Campany(Base):
+    """
+    会社テーブルのクラス
+    """
+    __tablename__ = "companies"
+    company_id = Column(Integer, primary_key=True)
+    edinet_code = Column(String(6), nullable=False)
+    security_code = Column(String(5))
+    industory_code = Column(String(10))
+    create_at = Column(DateTime, nullable=False)
+    update_at = Column(DateTime, nullable=False)
+
+
