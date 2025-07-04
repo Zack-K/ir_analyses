@@ -1,12 +1,21 @@
 -- DBEAVERからDDLを自動生成したもの
 -- DROP SCHEMA public;
 
-CREATE SCHEMA public AUTHORIZATION pg_database_owner;
-
 COMMENT ON SCHEMA public IS 'standard public schema';
 
--- DROP SEQUENCE public.companies_company_id_seq;
+-- シーケンスの削除
+DROP SEQUENCE IF EXISTS public.companies_company_id_seq CASCADE;
+DROP SEQUENCE IF EXISTS public.financial_data_data_id_seq CASCADE;
+DROP SEQUENCE IF EXISTS public.financial_items_item_id_seq CASCADE;
+DROP SEQUENCE IF EXISTS public.financial_reports_report_id_seq CASCADE;
 
+-- テーブルの削除
+DROP TABLE IF EXISTS public.financial_data CASCADE;
+DROP TABLE IF EXISTS public.financial_reports CASCADE;
+DROP TABLE IF EXISTS public.financial_items CASCADE;
+DROP TABLE IF EXISTS public.companies CASCADE;
+
+-- シーケンス作成
 CREATE SEQUENCE public.companies_company_id_seq
 	INCREMENT BY 1
 	MINVALUE 1
@@ -64,6 +73,7 @@ CREATE SEQUENCE public.financial_reports_report_id_seq
 
 ALTER SEQUENCE public.financial_reports_report_id_seq OWNER TO "user";
 GRANT ALL ON SEQUENCE public.financial_reports_report_id_seq TO "user";
+
 -- public.companies definition
 
 -- Drop table
@@ -131,7 +141,7 @@ CREATE TABLE public.financial_reports (
 					created_at timestamptz DEFAULT now() NULL, 
 					updated_at timestamptz DEFAULT now() NULL, 
 					CONSTRAINT financial_reports_pkey PRIMARY KEY (report_id), 
-					CONSTRAINT financial_reports_company_id_fkey FOREIGN KEY (company_id) REFERENCES public_.companies(company_id) ON DELETE CASCADE);
+					CONSTRAINT financial_reports_company_id_fkey FOREIGN KEY (company_id) REFERENCES public.companies(company_id) ON DELETE CASCADE);
 CREATE INDEX idx_reports_company_fiscal ON public.financial_reports USING btree (company_id, fiscal_year);
 
 -- Permissions
