@@ -66,8 +66,7 @@ def get_db_engine():
         # TODO SQLAlchemyでPostgreSQLに接続するための設定を記載する
         connection_rul = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
         engine = create_engine(
-                                connection_rul, 
-                                encoding = "utf-8", 
+                                connection_rul,
                                 echo=True
                                 )
         logger.info("DBエンジン作成成功")
