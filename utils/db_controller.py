@@ -9,7 +9,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.schema import Column
 from sqlalchemy.types import String, Integer, DateTime
-from sqlalcemy.orm import sessionmaker
+from sqlalchemy.orm import scoped_session, sessionmaker
 
 
 # 標準ロガーの取得
@@ -52,30 +52,53 @@ def get_db_engine():
 
     Returns:
         sqlalchemy.engine.Engine: 作成したDBエンジン
+    """        
+    try:
+        # 環境変数からDB接続情報を取得    
+        db_user = os.getenv("DB_USER", "user")
+        db_password = os.getenv("DB_PASSWORD", "password")
+        db_host = os.getenv("DB_HOST", "db")  # Docker環境では"db"
+        db_port = os.getenv("DB_PORT", "5432")
+        db_name = os.getenv("DB_NAME", "mydatabase")
+
+
+
+        # TODO SQLAlchemyでPostgreSQLに接続するための設定を記載する
+        connection_rul = f"postgresql+psycopg2://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+        engine = create_engine(
+                                connection_rul, 
+                                encoding = "utf-8", 
+                                echo=True
+                                )
+        logger.info("DBエンジン作成成功")
+        return engine
+
+
+    except ImportError:
+        logger.error("SQLAlchemyがインストールされていません。 pip install sqlalchemy psycopg2-binary を実行してください。")
+        return None
+    except Exception as e:
+        logger.error(f"DBエンジン作成失敗: {e}")
+        return None
+
+
+
+def create_session():
     """
-    # TODO SQLAlchemyでPostgreSQLに接続するための設定を記載する
-    engine = create_engine(f"postgresql+psycopg2://user:password@localhost:5432/mydatabase")
-    return engine
+        DBセッションを作成する関数
 
-# モデルクラスを作るためのベースクラスを作成
-Base = declarative_base()
-
-# セッションを作成
-Session = sessionmaker(get_db_engine)
-session = SessionClass()
-
-
-# TODO テーブルごとのモデルクラスを以下に作成
-class Campany(Base):
+        return:
+            session：DB接続で開始したセッションオブジェクト
     """
-    会社テーブルのクラス
-    """
-    __tablename__ = "companies"
-    company_id = Column(Integer, primary_key=True)
-    edinet_code = Column(String(6), nullable=False)
-    security_code = Column(String(5))
-    industory_code = Column(String(10))
-    create_at = Column(DateTime, nullable=False)
-    update_at = Column(DateTime, nullable=False)
+    # DBエンジン取得関数を実行
+    ENGINE = get_db_engine()
 
-
+    # Sessionの作成
+    session = scoped_session(
+        sessionmaker(
+            autocommit = False, # 自動でcommitしない
+            autoflush = False,# InsertやUpdateの更新系処理をしてもsession.commit()するまで実行しない
+            bind = ENGINE
+        )
+    )
+    return session
