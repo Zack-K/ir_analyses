@@ -56,3 +56,6 @@ claude.md
 
 # download
 /download/
+
+# プロジェクト用環境変数
+.env
