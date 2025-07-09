@@ -21,8 +21,7 @@ title = "IR Analysis Dashboard"
 debug = false
 
 [database]
-# TODO ここの設定は、分割して記載が必要かもしれない
-url = "postgresql://user:password@db:5432/mydatabase"
+# 認証情報は環境変数から取得
 pool_size = 5
 
 [edinetapi]
