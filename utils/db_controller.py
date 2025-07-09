@@ -5,6 +5,7 @@ DBコントローラー用モジュール
 import os
 import logging
 import toml
+from typing import Any 
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -35,8 +36,9 @@ def load_config():
                 config = toml.load(config_path)
                 logger.info("設定ファイル読み込み成功:%s", config_path)
                 return config
-            except Exception as e:
-                logger.error("設定ファイル読み込み失敗:%s", e)
+            except (toml.TomlDecodeError, OSError, FileNotFoundError) as e:
+                # ファイルの読み込み失敗に関わる例外を取得し、ログを残す
+                logger.error("設定ファイル読み込み失敗:%s", str(e))
                 continue
 
     logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
@@ -74,7 +76,7 @@ def get_db_engine():
         )
         return None
     except Exception as e:
-        logger.error(f"DBエンジン作成失敗: {e}")
+        logger.error("DBエンジン作成失敗: %s", e)
         return None
 
 
