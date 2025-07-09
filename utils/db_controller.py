@@ -5,7 +5,7 @@ DBコントローラー用モジュール
 import os
 import logging
 import toml
-from typing import Any 
+from typing import Any
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
@@ -123,7 +123,9 @@ def insert(model: type, data: dict[str, Any]) -> bool:
     except SQLAlchemyError as e:
         session.rollback()
         logger.error(
-            "[INSERT FAIL] table=%s, data=%s", model.__tablename__, data, exc_info=True
+            "[INSERT FAIL] table=%s, data=%s", 
+            model.__tablename__, 
+            data, exc_info=True
         )
         return False
     finally:
@@ -150,21 +152,43 @@ def update(model: type, filter_by: dict[str, Any]) -> bool:
         session.close()
 
 
-# TODO delete文の関数作成
 def delete(model: type, filter_by: dict[str, Any]) -> bool:
     """
-    DBにDELETEを実施する関数
+    DBに該当する条件のレコードを参照し、該当レコードをDELETEする関数
 
     Args:
         model:SQLAlchemyのモデルクラス（テーブル）
         data:削除するデータ（カラム名:値の辞書）
+
+    ※今回はカスケード削除（関連する子レコードも同時削除）に対応するために、Deleteのクエリは直接生成は行わない
+    ※複数削除が必要になった場合は、要設計変更
+
     Returns:
         bool: 成功時True、失敗時False
     """
     session = create_session()
     try:
-        return True
+        instance = session.query(model).filter_by(**filter_by).first()
+        if instance:
+            session.delete(instance)
+            session.commit()
+            logger.debug(
+                "[DELETE SUCCESS] table=%s, data=%s", model.__tablename__, filter_by
+            )
+            return True
+        else:
+            logger.debug(
+                "[DELETE FAIL] table=%s, data=%s", model.__tablename__, filter_by
+            )
+            return False
     except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(
+            "[DELETE FAIL] table=%s, data=%s",
+            model.__tablename__,
+            filter_by,
+            exc_info=True,
+        )
         return False
     finally:
         session.close()
