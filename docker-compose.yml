@@ -5,6 +5,8 @@ services:
       - "8501:8501"
     volumes:
       - ./config:/config:ro  # 設定ファイル用（次のステップで使用）
+      - ./utils:/app/utils:ro
+      - ./tests:/app/tests:ro  
     depends_on:
       - db
     environment:
