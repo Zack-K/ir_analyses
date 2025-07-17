@@ -123,30 +123,88 @@ def insert(model: type, data: dict[str, Any]) -> bool:
     except SQLAlchemyError as e:
         session.rollback()
         logger.error(
-            "[INSERT FAIL] table=%s, data=%s", 
-            model.__tablename__, 
-            data, exc_info=True
+            "[INSERT FAIL] table=%s, data=%s", model.__tablename__, data, exc_info=True
         )
         return False
     finally:
         session.close()
 
 
-# TODO update文の関数作成
-def update(model: type, filter_by: dict[str, Any]) -> bool:
+def read(model: type, condition: dict[str, Any]) -> list:
     """
-    DBにUPDATEを実施する関数
+    DBから条件に合致するレコードを取得する関数
 
     Args:
-        model:SQLAlchemyのモデルクラス（テーブル）
-        data:更新するデータ（カラム名:値の辞書）
+        model: SQLAlchemyのモデルクラス（テーブル）
+        condition: 検索条件（カラム名:値の辞書）
+
     Returns:
-         bool: 成功時True、失敗時False
+        list: 条件に合致したレコードのリスト（なければ空リスト）
     """
     session = create_session()
     try:
-        return True
+        results = session.query(model).filter_by(**condition).all()
+        logger.debug(
+            "[READ SUCCESS] table=%s, condition=%s, count=%d",
+            model.__tablename__,
+            condition,
+            len(results),
+        )
+        return results
     except SQLAlchemyError as e:
+        logger.error(
+            "[READ FAIL] table=%s, condition=%s",
+            model.__tablename__,
+            condition,
+            exc_info=True,
+        )
+        return []
+    finally:
+        session.close()
+
+
+def update(model: type, filter_by: dict[str, Any], update_data: dict[str, Any]) -> bool:
+    """
+    DBのレコードを更新する関数
+
+    Args:
+        model: SQLAlchemyのモデルクラス（テーブル）
+        filter_by: 更新対象の条件（カラム名:値の辞書）
+        update_data: 更新内容（カラム名:値の辞書）
+
+    Returns:
+        bool: 成功時True、失敗時False
+    """
+    session = create_session()
+    try:
+        instance = session.query(model).filter_by(**filter_by).first()
+        if instance:
+            for key, value in update_data.items():
+                setattr(instance, key, value)
+            session.commit()
+            logger.debug(
+                "[UPDATE SUCCESS] table=%s, filter=%s, update=%s",
+                getattr(model, "__tablename__", str(model)),
+                filter_by,
+                update_data,
+            )
+            return True
+        else:
+            logger.debug(
+                "[UPDATE FAIL] table=%s, filter=%s (対象なし)",
+                getattr(model, "__tablename__", str(model)),
+                filter_by,
+            )
+            return False
+    except SQLAlchemyError as e:
+        session.rollback()
+        logger.error(
+            "[UPDATE FAIL] table=%s, filter=%s, update=%s",
+            getattr(model, "__tablename__", str(model)),
+            filter_by,
+            update_data,
+            exc_info=True,
+        )
         return False
     finally:
         session.close()
