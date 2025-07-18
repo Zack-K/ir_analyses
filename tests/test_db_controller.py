@@ -23,12 +23,12 @@ pytestによるCompanyモデルのCRUD自動テスト
 
 import sys
 import os
+
 # utilsをimportするための設定
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 
 import pytest
-import sqlalchemy
 from utils.db_controller import insert, read, update, delete, create_session
 from utils.db_models import Company
 
@@ -39,19 +39,25 @@ def company_data():
         "edinet_code": "E00001",
         "company_name": "pytest株式会社",
         "security_code": "1234",
-        "industry_code": "5678"
+        "industry_code": "5678",
     }
+
 
 @pytest.fixture(autouse=True)
 def clean_up(company_data):
     # テスト前後でデータをクリーンアップ
     yield
     session = create_session()
-    company = session.query(Company).filter_by(edinet_code=company_data["edinet_code"]).first()
+    company = (
+        session.query(Company)
+        .filter_by(edinet_code=company_data["edinet_code"])
+        .first()
+    )
     if company:
         session.delete(company)
         session.commit()
     session.close()
+
 
 def test_insert(company_data):
     """
@@ -60,6 +66,7 @@ def test_insert(company_data):
     """
     assert insert(Company, company_data) is True
     assert insert(Company, company_data) is False
+
 
 def test_read(company_data):
     """
@@ -76,6 +83,7 @@ def test_read(company_data):
     df = read(Company, {"edinet_code": "NOEXIST"})
     assert df.empty
 
+
 def test_update(company_data):
     """
     Companyモデルの既存データを更新できること、
@@ -83,10 +91,14 @@ def test_update(company_data):
     """
     insert(Company, company_data)
     update_data = {"company_name": "更新株式会社"}
-    assert update(Company, {"edinet_code": company_data["edinet_code"]}, update_data) is True
+    assert (
+        update(Company, {"edinet_code": company_data["edinet_code"]}, update_data)
+        is True
+    )
     df = read(Company, {"edinet_code": company_data["edinet_code"]})
     assert not df.empty
     assert df.iloc[0]["company_name"] == "更新株式会社"
+
 
 def test_delete(company_data):
     """
