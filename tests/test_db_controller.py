@@ -1,16 +1,24 @@
 """
-/utils/db_controller.py のCRUD機能をテストコード
+pytestによるCompanyモデルのCRUD自動テスト
 
-実行方法
-1. Dockerの立ち上げ
-$ docker compose up -d
+特徴:
+- pytestのfixtureを用いてテストデータの準備・クリーンアップを自動化
+- insert, read, update, deleteの各操作を個別のテスト関数で検証
+- print文は使用せず、assertで期待値と実際の値を厳密に比較
+- テストは冪等性があり、何度でも安全に実行可能
+- pytestコマンドで自動的に全テストが実行される
 
-2. Dcokerコンテナ環境に入る
-$docker compose exec streamlit_app /bin/bash 
+【実行手順】
+1. DockerでDBを起動
+   $ docker compose up -d
 
+2. （必要に応じて）アプリケーション用コンテナに入る
+   $ docker compose exec streamlit_app /bin/bash
 
-3. コンテナ環境内でテスト実行
-$ python ./tests/test_db_controller.py
+3. pytestでテストを実行
+   $ pytest tests/test_db_controller.py
+
+※DBが起動していない場合、テストは失敗します。
 """
 
 import sys
@@ -19,178 +27,62 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
+import pytest
 import sqlalchemy
 from utils.db_controller import insert, read, update, delete, create_session
 from utils.db_models import Company
 
 
-def run_insert_test(test_data, expected_result, test_name):
-    print(f"\n=== {test_name} ===")
-    result = insert(Company, test_data)
-    print(f"戻り値: {result}")
-    print(f"期待値: {expected_result}")
-    if result == expected_result:
-        print("テスト成功")
-    else:
-        print("テスト失敗")
+@pytest.fixture
+def company_data():
+    return {
+        "edinet_code": "E00001",
+        "company_name": "pytest株式会社",
+        "security_code": "1234",
+        "industry_code": "5678"
+    }
 
-
-def run_delete_test(filter_by, expected_result, test_name):
-    print(f"\n=== {test_name} ===")
-    result = delete(Company, filter_by)
-    print(f"戻り値: {result}")
-    print(f"期待値: {expected_result}")
-    if result == expected_result:
-        print("テスト成功")
-    else:
-        print("テスト失敗")
-
-
-def run_read_test(condition, expected_result, test_name):
-    print(f"\n=== {test_name} ===")
-    records = read(Company, condition)
-    print(f"取得結果:\n{records}")
-    print(f"期待値: {expected_result}")  
-
-    if records.empty and len(records) == 1:
-        record_dict = records.iloc[0].to_dict()
-        match = all(record_dict.get(key) == value for key, value in expected_result.items())
-        if match:
-            print("テスト成功")
-            return True
-        else:
-            print(f"値が一致しません: {record_dict}") 
-    else:
-        print("件数が一致しません")
-    print("テスト失敗")
-    return False
-
-
-def clean_up_test_data(model, edinet_code):
+@pytest.fixture(autouse=True)
+def clean_up(company_data):
+    # テスト前後でデータをクリーンアップ
+    yield
     session = create_session()
-    # edinet_codeでレコードを検索
-    company = session.query(model).filter_by(edinet_code=edinet_code).first()
-    try:
-        if company:
-            session.delete(company)
-            session.commit()
-            print(f"テストデータ削除完了: {edinet_code}")
-        else:
-            print(f"削除対象データが見つかりません: {edinet_code}")
-    except Exception as e:
-        session.rollback()
-        print(f"削除中にエラーが発生しました: {e}")
-    finally:
-        session.close()
+    company = session.query(Company).filter_by(edinet_code=company_data["edinet_code"]).first()
+    if company:
+        session.delete(company)
+        session.commit()
+    session.close()
 
+def test_insert(company_data):
+    # 正常系
+    assert insert(Company, company_data) is True
+    # 重複系
+    assert insert(Company, company_data) is False
 
-def test_insert_function():
-    print("=== Company Create機能 簡易動作確認 ===")
-    print("データベース接続を確認してください。")
+def test_read(company_data):
+    # データ挿入
+    insert(Company, company_data)
+    # 存在するデータ
+    df = read(Company, {"edinet_code": company_data["edinet_code"]})
+    assert not df.empty
+    assert len(df) == 1
+    row = df.iloc[0]
+    for k, v in company_data.items():
+        assert row[k] == v
+    # 存在しないデータ
+    df = read(Company, {"edinet_code": "NOEXIST"})
+    assert df.empty
 
-    model = Company
-    valid_company_data = {
-        "edinet_code": "E00000",      # 必須、6文字以内
-        "company_name": "テスト株式会社",  # 必須、200文字以内
-        "security_code": "0000",      # 任意、5文字以内
-        "industry_code": "1234"       # 任意、10文字以内
-    }
-    # 必須項目不足
-    missing_required_data = {
-        "company_name": "テスト株式会社"
-        # edinet_codeが不足
-    }
+def test_update(company_data):
+    insert(Company, company_data)
+    update_data = {"company_name": "更新株式会社"}
+    assert update(Company, {"edinet_code": company_data["edinet_code"]}, update_data) is True
+    df = read(Company, {"edinet_code": company_data["edinet_code"]})
+    assert not df.empty
+    assert df.iloc[0]["company_name"] == "更新株式会社"
 
-    # 制約違反
-    duplicate_edinet_code = {
-        "edinet_code": "E00000",      # 既存のコードと重複
-        "company_name": "重複テスト株式会社"
-    }
-
-    # テスト前クリーンアップ
-    clean_up_test_data(model, valid_company_data["edinet_code"])
-    clean_up_test_data(model, duplicate_edinet_code["edinet_code"])
-
-    # 正常系テスト
-    run_insert_test(valid_company_data, True, "正常系: 有効なデータ")
-
-
-    # 異常系テスト
-    run_insert_test(missing_required_data, False, "異常系: 必須項目不足")
-    run_insert_test(duplicate_edinet_code, False, "異常系: 重複制約違反")
-
-    # テスト実行前クリーンアップ
-    clean_up_test_data(model, valid_company_data["edinet_code"])
-    clean_up_test_data(model, duplicate_edinet_code["edinet_code"])
-
-
-def test_delete_function():
-    print("=== Company Delete機能 簡易動作確認 ===")
-    print("データベース接続を確認してください。")
-
-    model = Company
-
-    # テストデータ
-    test_company_data = {
-        "edinet_code": "E99999",  # テスト用のEDINETコード
-        "company_name": "削除テスト株式会社",  # テスト用の会社名
-        "security_code": "9999",  # テスト用の証券コード
-        "industry_code": "9999"  # テスト用の業種コード
-    }
-
-    print("\n=== テストデータ準備 ===")
-    insert_result = insert(model, test_company_data)
-    if not insert_result:
-        print("テストデータの挿入に失敗しました。テストを中止します。")
-        return
-
-    # 正常系テスト：存在するデータの削除
-    run_delete_test({"edinet_code": "E99999"}, True, "正常系: 存在するデータの削除")
-
-    # 異常系テスト：存在しないデータの削除
-    run_delete_test({"edinet_code": "E99999"}, False, "異常系: 存在しないデータの削除")
-
-    # 複数条件での削除テスト
-    run_delete_test({"edinet_code": "E99999", "company_name": "削除テスト株式会社"}, False, "異常系: 複数条件での削除（データなし）")
-
-    # テストデータのクリーンアップ（念のため）
-    clean_up_test_data(model, test_company_data["edinet_code"])
-
-
-
-def test_read_function():
-    print("=== Company Read機能 簡易動作確認 ===")
-    print("データベース接続を確認してください。")
-
-    # 　テストデータの登録
-    model = Company
-    test_company_data = {
-        "edinet_code": "E00000",     
-        "company_name": "テスト株式会社",  
-        "security_code": "0000",    
-        "industry_code": "1234" 
-    }
-
-    print("\n=== テストデータ準備 ===")
-    insert_result = insert(model,{"edinet_code": "E00000"}, test_company_data, "正常系:登録済みデータの取得")
-    if not insert_result:
-        print("テストデータの挿入に失敗しました。テストを中止します。")
-        return
-
-    # 正常系: insert済みの存在するデータ取得
-    test_result = run_read_test(model, test_company_data)
-
-    if not test_result:
-        print("テストデータの取得に失敗しました。テストを中止します。")
-        return
-
-    # 異常系: 存在しないデータ
-    run_read_test(model, {"edinet_code": "NOEXIST"}, {}, "異常系: 存在しないデータの取得")
-
-    # テストデータのクリーンアップ（念のため）
-    clean_up_test_data(model, test_company_data["edinet_code"])
-
-if __name__ == '__main__':
-    #test_insert_function()
-    #test_delete_function()
-    test_read_function()
+def test_delete(company_data):
+    insert(Company, company_data)
+    assert delete(Company, {"edinet_code": company_data["edinet_code"]}) is True
+    # 既に削除済み
+    assert delete(Company, {"edinet_code": company_data["edinet_code"]}) is False
