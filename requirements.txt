@@ -8,3 +8,4 @@ chardet
 toml
 ruff
 sqlalchemy
+pytest
