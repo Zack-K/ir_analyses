@@ -22,3 +22,17 @@ jobs:
       - name: Build Docker image
         run: docker build -t my-app:latest .
       # 以下、必要に応じてテストやデプロイのステップを追加
+
+      # 自動テストとしてPytestを実施
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Pytest
+        run: pytest tests/
