@@ -20,7 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 
 import sqlalchemy
-from utils.db_controller import insert, delete, create_session
+from utils.db_controller import insert, read, update, delete, create_session
 from utils.db_models import Company
 
 
@@ -44,6 +44,26 @@ def run_delete_test(filter_by, expected_result, test_name):
         print("テスト成功")
     else:
         print("テスト失敗")
+
+
+def run_read_test(condition, expected_result, test_name):
+    print(f"\n=== {test_name} ===")
+    records = read(Company, condition)
+    print(f"取得結果:\n{records}")
+    print(f"期待値: {expected_result}")  
+
+    if records.empty and len(records) == 1:
+        record_dict = records.iloc[0].to_dict()
+        match = all(record_dict.get(key) == value for key, value in expected_result.items())
+        if match:
+            print("テスト成功")
+            return True
+        else:
+            print(f"値が一致しません: {record_dict}") 
+    else:
+        print("件数が一致しません")
+    print("テスト失敗")
+    return False
 
 
 def clean_up_test_data(model, edinet_code):
@@ -137,6 +157,40 @@ def test_delete_function():
     clean_up_test_data(model, test_company_data["edinet_code"])
 
 
+
+def test_read_function():
+    print("=== Company Read機能 簡易動作確認 ===")
+    print("データベース接続を確認してください。")
+
+    # 　テストデータの登録
+    model = Company
+    test_company_data = {
+        "edinet_code": "E00000",     
+        "company_name": "テスト株式会社",  
+        "security_code": "0000",    
+        "industry_code": "1234" 
+    }
+
+    print("\n=== テストデータ準備 ===")
+    insert_result = insert(model,{"edinet_code": "E00000"}, test_company_data, "正常系:登録済みデータの取得")
+    if not insert_result:
+        print("テストデータの挿入に失敗しました。テストを中止します。")
+        return
+
+    # 正常系: insert済みの存在するデータ取得
+    test_result = run_read_test(model, test_company_data)
+
+    if not test_result:
+        print("テストデータの取得に失敗しました。テストを中止します。")
+        return
+
+    # 異常系: 存在しないデータ
+    run_read_test(model, {"edinet_code": "NOEXIST"}, {}, "異常系: 存在しないデータの取得")
+
+    # テストデータのクリーンアップ（念のため）
+    clean_up_test_data(model, test_company_data["edinet_code"])
+
 if __name__ == '__main__':
     #test_insert_function()
-    test_delete_function()
+    #test_delete_function()
+    test_read_function()
