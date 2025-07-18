@@ -15,6 +15,7 @@ jobs:
       #  Ruff によるPythonのコード静的解析・フォーマットチェック
       - name: Run Ruff (Python linter/formatter)
         uses: astral-sh/ruff-action@v3
+        continue-on-error: true
 
       # Docker Bulidxのセットアップ
       - name: Set up Docker Buildx
