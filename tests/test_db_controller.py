@@ -54,26 +54,33 @@ def clean_up(company_data):
     session.close()
 
 def test_insert(company_data):
-    # 正常系
+    """
+    Companyモデルに新規データを挿入できること、
+    および同じデータの重複挿入が失敗することを検証する。
+    """
     assert insert(Company, company_data) is True
-    # 重複系
     assert insert(Company, company_data) is False
 
 def test_read(company_data):
-    # データ挿入
+    """
+    Companyモデルに挿入したデータが正しく取得できること、
+    存在しないデータの検索時は空のDataFrameが返ることを検証する。
+    """
     insert(Company, company_data)
-    # 存在するデータ
     df = read(Company, {"edinet_code": company_data["edinet_code"]})
     assert not df.empty
     assert len(df) == 1
     row = df.iloc[0]
-    for k, v in company_data.items():
-        assert row[k] == v
-    # 存在しないデータ
+    for key, value in company_data.items():
+        assert row[key] == value
     df = read(Company, {"edinet_code": "NOEXIST"})
     assert df.empty
 
 def test_update(company_data):
+    """
+    Companyモデルの既存データを更新できること、
+    更新後に新しい値が正しく反映されていることを検証する。
+    """
     insert(Company, company_data)
     update_data = {"company_name": "更新株式会社"}
     assert update(Company, {"edinet_code": company_data["edinet_code"]}, update_data) is True
@@ -82,7 +89,10 @@ def test_update(company_data):
     assert df.iloc[0]["company_name"] == "更新株式会社"
 
 def test_delete(company_data):
+    """
+    Companyモデルの既存データを削除できること、
+    削除済みデータを再度削除しようとした場合は失敗することを検証する。
+    """
     insert(Company, company_data)
     assert delete(Company, {"edinet_code": company_data["edinet_code"]}) is True
-    # 既に削除済み
     assert delete(Company, {"edinet_code": company_data["edinet_code"]}) is False
