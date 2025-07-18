@@ -11,6 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 import utils.db_models as db_models
+import pandas as pd
 
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
@@ -130,27 +131,37 @@ def insert(model: type, data: dict[str, Any]) -> bool:
         session.close()
 
 
-def read(model: type, condition: dict[str, Any]) -> list:
+def read(model: type, condition: dict[str, Any]) -> pd.DataFrame:
     """
-    DBから条件に合致するレコードを取得する関数
+    DBから条件に合致するレコードを取得し、pandas.DataFrameで返す関数
 
     Args:
         model: SQLAlchemyのモデルクラス（テーブル）
         condition: 検索条件（カラム名:値の辞書）
 
     Returns:
-        list: 条件に合致したレコードのリスト（なければ空リスト）
+        pd.DataFrame: 条件に合致したレコードを格納したDataFrame。
+            - レコードが存在しない場合や例外発生時は空のDataFrameを返す。
+            - DataFrameのカラム名はモデルの属性名に対応。
+            - SQLAlchemyの内部属性（_sa_instance_state）は自動的に除去される。
+            - streamlit等でのデータ可視化・グラフ化にそのまま利用可能。
     """
     session = create_session()
     try:
         results = session.query(model).filter_by(**condition).all()
+        # 取得した結果をpandasのDataFrameに変換
+        df = pd.DataFrame([result.__dict__ for result in results])
+        # sqlalchemyの内部属性（不要なデータ）を削除
+        if "_sa_instance_state" in df.columns:
+            df = df.drop(columns=["_sa_instance_state"])
+        
         logger.debug(
             "[READ SUCCESS] table=%s, condition=%s, count=%d",
             model.__tablename__,
             condition,
             len(results),
         )
-        return results
+        return df
     except SQLAlchemyError as e:
         logger.error(
             "[READ FAIL] table=%s, condition=%s",
@@ -158,7 +169,7 @@ def read(model: type, condition: dict[str, Any]) -> list:
             condition,
             exc_info=True,
         )
-        return []
+        return pd.DataFrame()
     finally:
         session.close()
 
