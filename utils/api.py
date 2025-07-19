@@ -117,7 +117,8 @@ def get_company_list(submiting_date: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(sd_df: pd.DataFrame) -> list[pd.DataFrame]:  # または pd.DataFrame
+def fetch_financial_data(
+        sd_df: pd.DataFrame) -> pd.DataFrame:  
     """
     財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
 
@@ -125,7 +126,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> list[pd.DataFrame]:  # また�
         sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
 
     Returns:
-        list[pd.DataFrame]: 全企業の財務データのDataFrameリスト
+        pd.DataFrame: 全企業の財務データのDataFrame
     """
     # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
     company_name_list = sd_df["filerName"][:2]
@@ -171,7 +172,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> list[pd.DataFrame]:  # また�
         if not csvfile:
             logger.error("CSVファイルが見つかりません: %s", doc_id)
             continue
-        
+
         csv_file_path = csvfile[0]
         logger.info(csv_file_path)
         with open(csv_file_path, "rb") as f:
