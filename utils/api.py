@@ -163,6 +163,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
             logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
 
     company_financial_dataframe_dict = {}
+     # csvのデータを読み込み、企業名と財務情報のデータフレームを辞書型にまとめて返却
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
