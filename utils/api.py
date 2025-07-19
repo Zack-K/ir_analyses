@@ -117,13 +117,15 @@ def get_company_list(submiting_date: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
+def fetch_financial_data(sd_df: pd.DataFrame) -> list[pd.DataFrame]:  # または pd.DataFrame
     """
     財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
 
-    sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
+    Args:
+        sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
 
-    return company_financial_dataframe_dict
+    Returns:
+        list[pd.DataFrame]: 全企業の財務データのDataFrameリスト
     """
     # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
     company_name_list = sd_df["filerName"][:2]
@@ -152,24 +154,24 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
             with zipfile.ZipFile(io.BytesIO(respose.content)) as z:
                 for file in z.namelist():
                     # TODO 現在は四半期報告書のみに対応、将来的に有価証券報告書にも対応させたい
-                    if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
+                    if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(
+                            ".csv"):
                         z.extract(file, path=f"download/{doc_id}")
-                        logger.info(
-                            "ファイルをダウンロードしました。: %s:%s ", name, doc_id
-                        )
+                        logger.info("ファイルをダウンロードしました。: %s:%s ", name, doc_id)
         except requests.exceptions.RequestException as e:
             logger.error("リクエスト中にエラーが発生しました: %s", e)
         except zipfile.BadZipFile as e:
             logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
 
-    company_financial_dataframe_dict = {}
-     # csvのデータを読み込み、企業名と財務情報のデータフレームを辞書型にまとめて返却
+    # csvのデータを読み込み、財務情報のデータフレームを返却
+    all_dataframe = []
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
         if not csvfile:
             logger.error("CSVファイルが見つかりません: %s", doc_id)
             continue
+        
         csv_file_path = csvfile[0]
         logger.info(csv_file_path)
         with open(csv_file_path, "rb") as f:
@@ -178,9 +180,12 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
             encoding = result["encoding"]
             logger.info("Detected encoding: %s", encoding)
 
-        # TODO 設計バグのため要修正 キーに企業名を貼る必要なし CSV項目に存在するためDataFrameのままで良い
-        company_financial_dataframe_dict[name] = pd.read_csv(
-            csv_file_path, encoding=encoding, delimiter="\t"
-        )
+        df = pd.read_csv(csv_file_path, encoding=encoding, delimiter="\t")
+        all_dataframe.append(df)
 
-    return company_financial_dataframe_dict
+    # 全企業のDataFrameを結合して返す
+    if all_dataframe:
+        return pd.concat(all_dataframe, ignore_index=True)
+    else:
+        logger.warning("有効なCSVファイルが見つかりませんでした")
+        return pd.DataFrame()
