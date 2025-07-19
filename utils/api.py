@@ -178,6 +178,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
             encoding = result["encoding"]
             logger.info("Detected encoding: %s", encoding)
 
+        # TODO 設計バグのため要修正 キーに企業名を貼る必要なし CSV項目に存在するためDataFrameのままで良い
         company_financial_dataframe_dict[name] = pd.read_csv(
             csv_file_path, encoding=encoding, delimiter="\t"
         )
