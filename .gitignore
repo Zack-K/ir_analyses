@@ -19,6 +19,7 @@ pip-delete-this-directory.txt
 venv/
 env/
 ENV/
+.uvrc
 
 # IDE関連
 .vscode/
