@@ -16,7 +16,6 @@ if str(project_root) not in sys.path:
 # 安全なモジュールインポート
 try:
     import utils.api as api
-    import utils.analysis as analysis
 except ImportError as e:
     st.error(f"モジュールのインポートに失敗しました: {e}")
     st.info("プロジェクトルートから 'streamlit run app/app.py' で実行してください")
@@ -73,12 +72,4 @@ all_documents_dataframe = api.get_company_list(date)
 API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
 calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe)
 
-st.json(calculate_financial_metrics)
-st.dataframe(calculate_financial_metrics["四国電力株式会社"])
-
-# results = analysis.calculate_financial_metrics(calculate_financial_metrics["S100SSMQ"])
-# st.write(analysis.generate_summary_report(results))
-# analysis.create_visualizations(results)
-# st.image("安定性指標.png")
-# st.image("収益性指標.png")
-# st.image("成長率.png")
+st.dataframe(calculate_financial_metrics)
