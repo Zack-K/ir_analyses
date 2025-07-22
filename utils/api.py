@@ -11,6 +11,8 @@ import chardet
 import pandas as pd
 import requests
 
+import utils.db_models as models
+import utils.db_controller as db
 
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
@@ -117,16 +119,13 @@ def get_company_list(submiting_date: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(
-        sd_df: pd.DataFrame) -> pd.DataFrame:  
+def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
     """
     財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
 
-    Args:
-        sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
+    sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
 
-    Returns:
-        pd.DataFrame: 全企業の財務データのDataFrame
+    return company_financial_dataframe_dict
     """
     # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
     company_name_list = sd_df["filerName"][:2]
@@ -155,24 +154,23 @@ def fetch_financial_data(
             with zipfile.ZipFile(io.BytesIO(respose.content)) as z:
                 for file in z.namelist():
                     # TODO 現在は四半期報告書のみに対応、将来的に有価証券報告書にも対応させたい
-                    if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(
-                            ".csv"):
+                    if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
                         z.extract(file, path=f"download/{doc_id}")
-                        logger.info("ファイルをダウンロードしました。: %s:%s ", name, doc_id)
+                        logger.info(
+                            "ファイルをダウンロードしました。: %s:%s ", name, doc_id
+                        )
         except requests.exceptions.RequestException as e:
             logger.error("リクエスト中にエラーが発生しました: %s", e)
         except zipfile.BadZipFile as e:
             logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
 
-    # csvのデータを読み込み、財務情報のデータフレームを返却
-    all_dataframe = []
+    company_financial_dataframe_dict = {}
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
         if not csvfile:
             logger.error("CSVファイルが見つかりません: %s", doc_id)
             continue
-
         csv_file_path = csvfile[0]
         logger.info(csv_file_path)
         with open(csv_file_path, "rb") as f:
@@ -181,12 +179,122 @@ def fetch_financial_data(
             encoding = result["encoding"]
             logger.info("Detected encoding: %s", encoding)
 
-        df = pd.read_csv(csv_file_path, encoding=encoding, delimiter="\t")
-        all_dataframe.append(df)
+        company_financial_dataframe_dict[name] = pd.read_csv(
+            csv_file_path, encoding=encoding, delimiter="\t"
+        )
 
-    # 全企業のDataFrameを結合して返す
-    if all_dataframe:
-        return pd.concat(all_dataframe, ignore_index=True)
-    else:
-        logger.warning("有効なCSVファイルが見つかりませんでした")
-        return pd.DataFrame()
+    return company_financial_dataframe_dict
+
+
+
+def extract_dataframe_for_each_models(model:type, df:pd.DataFrame):
+    """
+    指定モデルに必要なカラムをDataFrameから抽出する関数
+
+    Args:
+        model: type 抽出するモデル SQLAlchemyモデルクラス
+        df:pd.DataFrame 財務データがまとめられている対象のDataFrame
+    Return:
+        df[model]:pd.DataFrame modelに必要なカラムのみを抽出したDataFrame
+
+    """
+
+    model = model
+    
+    match model.__name__:
+
+        case "Company":     
+            # Companyモデルに必要なカラム名を明示
+            columns = [
+                "company_id",
+                "edinet_code",
+                "security_code",
+                "industry_code",
+                "company_name"
+            ]
+            
+            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
+
+            return df[columns]
+
+        case "Financial_data":
+            # Financial_dataモデルに必要なカラム名を明示
+            columns = [
+                "item_id",
+                "context_id",
+                "period_type",
+                "consolidated_type",
+                "duration_type",
+                "value",
+                "value_text",
+                "is_numeric"    
+            ]
+
+              # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
+            
+            return df[columns]
+        case "Financial_items":
+            # Financial_itemモデルに必要なカラム名を明示
+            columns = [
+                "item_id",
+                "elemenem_namet_id",
+                "item_name",
+                "category",
+                "unit_type"
+            ]
+
+            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
+            
+            
+            
+            return df[columns]
+
+        case "Financial_report":
+            # Financial_reportモデルに必要なカラム名を明示
+            columns = [
+                "report_id",
+                "company_id",
+                "document_type",
+                "fiscal_year",
+                "quarter_type",
+                "fiscal_year_end",
+                "filing_date"
+            ]
+
+            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
+    
+            return df[columns]
+
+
+
+def dataframe_to_dict(df: pd.DataFrame) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """
+    CSVから作成した財務データのpd.DataFrameをモデルごとにInsert可能なDictとして変換する関数
+
+    Args:
+        df: pd.DataFrame CSVから変換して作成した企業ごとの財務データ（データフレーム）
+    
+    Return:
+        tuple[list[dict], list[dict], list[dict], list[dict]]: 各モデルのInsert用に分割した辞書データのリストをタプルとして返還 
+    """
+
+    # それぞれのモデルについてインスタンスを立ち上げ、関数に引き渡す。返却されたDataFrameをdictに変換
+    company = models.company()
+    company_values = extract_dataframe_for_each_models(company, df).to_dict()
+
+    financial_data = models.financial_data()
+    financial_data_values = extract_dataframe_for_each_models(financial_data, df).to_dict()
+
+
+    financial_item = models.financial_item_()
+    financial_item_values = extract_dataframe_for_each_models(financial_item, df).to_dict()
+
+    financial_report = models.financial_report()
+    financial_report_values = extract_dataframe_for_each_models(financial_report, df).to_dict()
+
+    # TODO 辞書を基に各モデルにInsertを実施
+    db.insert(company, company_values)
+    db.insert(financial_item,financial_item_values)
+    db.insert(financial_report, financial_report_values)
+    db.insert(financial_data, financial_data_values)
+    
