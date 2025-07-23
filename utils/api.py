@@ -11,7 +11,7 @@ import chardet
 import pandas as pd
 import requests
 
-import utils.db_models as models
+from utils.db_models import Company, Financial_data, Financial_item, Financial_report
 import utils.db_controller as db
 
 # 標準ロガーの取得
@@ -53,7 +53,7 @@ config = load_config()
 def get_api_key():
     """
     EDINETのAPIキーを取得して、返却する関数
-    
+
     いずれはホストしている環境によって、APIキーの取得方法を分岐させる予定
 
     Returns:
@@ -129,7 +129,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
     """
     # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
     company_name_list = sd_df["filerName"][:2]
-    #company_name_list = sd_df["filerName"]
+    # company_name_list = sd_df["filerName"]
 
     os.makedirs("download", exist_ok=True)
 
@@ -164,7 +164,6 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
         except zipfile.BadZipFile as e:
             logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
 
-    company_financial_dataframe_dict = {}
     for name in company_name_list:
         doc_id = get_doc_id(sd_df, name)
         csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
@@ -179,15 +178,14 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
             encoding = result["encoding"]
             logger.info("Detected encoding: %s", encoding)
 
-        company_financial_dataframe_dict[name] = pd.read_csv(
+        company_financial_dataframe = pd.read_csv(
             csv_file_path, encoding=encoding, delimiter="\t"
         )
 
-    return company_financial_dataframe_dict
+    return company_financial_dataframe
 
 
-
-def extract_dataframe_for_each_models(model:type, df:pd.DataFrame):
+def extract_dataframe_for_each_models(model: type, df: pd.DataFrame):
     """
     指定モデルに必要なカラムをDataFrameから抽出する関数
 
@@ -200,101 +198,98 @@ def extract_dataframe_for_each_models(model:type, df:pd.DataFrame):
     """
 
     model = model
-    
-    match model.__name__:
 
-        case "Company":     
-            # Companyモデルに必要なカラム名を明示
-            columns = [
-                "company_id",
-                "edinet_code",
-                "security_code",
-                "industry_code",
-                "company_name"
+    match model.__name__:
+        case "Company":
+            # Companyモデルに
+            columns = { 
+                ["edinet_code"]:["jpdei_cor:EDINETCodeDEI"],
+                ["security_code"]:["jpdei_cor:SecurityCodeDEI"],
+                ["industry_code"]:["jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"],
+                ["company_name"]:["jpcrp_cor:CompanyNameCoverPage"],
+            }
+               
             ]
-            
+
             # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
+            df
 
             return df[columns]
 
         case "Financial_data":
-            # Financial_dataモデルに必要なカラム名を明示
-            columns = [
-                "item_id",
-                "context_id",
-                "period_type",
-                "consolidated_type",
-                "duration_type",
-                "value",
-                "value_text",
-                "is_numeric"    
-            ]
+            # Financial_dataモデルに必要なDataFrameの要素IDを明示
+            columns = {
+                ["period_type"]:[],
+                ["consolidated_type"]:[],
+                ["duration_type"]:[],
+                ["value"]:[],
+                ["value_text"]:[],
+                ["is_numeric"]:[],
+            }
+            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
 
-              # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-            
             return df[columns]
         case "Financial_items":
-            # Financial_itemモデルに必要なカラム名を明示
-            columns = [
-                "item_id",
-                "elemenem_namet_id",
-                "item_name",
-                "category",
-                "unit_type"
-            ]
+            # Financial_itemモデルに必要なDataFrameの要素IDを明示
+            columns = {
+                ["elemenem_namet_id"]:[], # これ何だっけ？必要？
+                ["item_name"]:["jpcrp_cor:DocumentTitleCoverPage"],
+                ["category"]:[],
+                # カテゴリってどうやって取得する？
+                ["unit_type"]:[]
+                # 会計基準が日本なら円、米国ならドルにする？ Lambda式でif文の判定する？
+            }
 
             # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-            
-            
-            
+
             return df[columns]
 
         case "Financial_report":
-            # Financial_reportモデルに必要なカラム名を明示
-            columns = [
-                "report_id",
-                "company_id",
-                "document_type",
-                "fiscal_year",
-                "quarter_type",
-                "fiscal_year_end",
-                "filing_date"
-            ]
+            # Financial_reportモデルに必要なDataFrameの要素IDを明示
+            columns = {
+                ["document_type"]:["jpcrp_cor:DocumentTitleCoverPage"],
+                ["fiscal_year"]:["jpcrp_cor:QuarterlyAccountingPeriodCoverPage"], # 会計年度の判定はどうする？ロジック必要？ Lambda式でif文の判定する？
+                ["quarter_type"]:["jpcrp_cor:QuarterlyAccountingPeriodCoverPage"], # 会計期間の判定はどうする？ロジック必要？Lambda式でif文の判定する？
+                ["fiscal_year_end"]:["jpdei_cor:CurrentPeriodEndDateDEI"],
+                ["filing_date"]:["jpcrp_cor:FilingDateCoverPage"],
+            }
 
             # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-    
+
             return df[columns]
 
 
-
-def dataframe_to_dict(df: pd.DataFrame) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+def dataframe_to_dict(df: pd.DataFrame) -> bool:
     """
     CSVから作成した財務データのpd.DataFrameをモデルごとにInsert可能なDictとして変換する関数
 
     Args:
         df: pd.DataFrame CSVから変換して作成した企業ごとの財務データ（データフレーム）
-    
+
     Return:
-        tuple[list[dict], list[dict], list[dict], list[dict]]: 各モデルのInsert用に分割した辞書データのリストをタプルとして返還 
+        bool: すべてのモデルへのInsertの成功結果 成功:True, 失敗:False
     """
 
-    # それぞれのモデルについてインスタンスを立ち上げ、関数に引き渡す。返却されたDataFrameをdictに変換
-    company = models.company()
-    company_values = extract_dataframe_for_each_models(company, df).to_dict()
+    # それぞれのモデルそ関数に引き渡し、返却されたDataFrameをdictに変換
+    company_values = extract_dataframe_for_each_models(Company, df).to_dict()
+    financial_data_values = extract_dataframe_for_each_models(
+        Financial_data, df
+    ).to_dict()
+    financial_item_values = extract_dataframe_for_each_models(
+        Financial_item, df
+    ).to_dict()
+    financial_report_values = extract_dataframe_for_each_models(
+        Financial_report, df
+    ).to_dict()
 
-    financial_data = models.financial_data()
-    financial_data_values = extract_dataframe_for_each_models(financial_data, df).to_dict()
+    try:
+        db.insert(Company, company_values)
+        db.insert(Financial_item, financial_item_values)
+        db.insert(Financial_report, financial_report_values)
+        db.insert(Financial_data, financial_data_values)
 
-
-    financial_item = models.financial_item_()
-    financial_item_values = extract_dataframe_for_each_models(financial_item, df).to_dict()
-
-    financial_report = models.financial_report()
-    financial_report_values = extract_dataframe_for_each_models(financial_report, df).to_dict()
-
-    # TODO 辞書を基に各モデルにInsertを実施
-    db.insert(company, company_values)
-    db.insert(financial_item,financial_item_values)
-    db.insert(financial_report, financial_report_values)
-    db.insert(financial_data, financial_data_values)
-    
+    except Exception as e:
+        logger.error("財務データのDB登録に失敗しました: %s", e)
+        return False
+    finally:
+        return True
