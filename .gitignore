@@ -47,7 +47,8 @@ README.md
 LICENSE
 CHANGELOG.md
 .env.example
-*.md
+cursor_shell.md
+package-lock.json
 
 # バックアップ
 *.backup
