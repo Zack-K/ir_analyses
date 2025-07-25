@@ -1,0 +1,26 @@
+[project]
+name = "ir_analyses"
+version = "0.1.0"
+description = "IR Analyses Project"
+requires-python = ">=3.11"
+dependencies = [
+    "requests",
+    "pandas",
+    "numpy",
+    "streamlit",
+    "psycopg2-binary",
+    "matplotlib-fontja",
+    "chardet",
+    "toml",
+    "ruff",
+    "sqlalchemy",
+    "pytest",
+]
+
+[tool.setuptools.packages.find]
+where = [""]
+include = ["app*", "utils*"]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
