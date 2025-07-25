@@ -59,5 +59,8 @@ claude.md
 # download
 /download/
 
+# 仮想環境関連
+/documents/ir_analyses.egg-info/*
+
 # プロジェクト用環境変数
 .env
