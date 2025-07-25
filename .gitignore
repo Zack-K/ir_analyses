@@ -60,7 +60,7 @@ claude.md
 /download/
 
 # 仮想環境関連
-/documents/ir_analyses.egg-info/*
+/documents/ir_analyses.egg-info/
 
 # プロジェクト用環境変数
 .env
