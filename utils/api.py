@@ -230,35 +230,51 @@ def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def _get_value(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    財務データのDataFrameから必要な値を取得・返却するヘルパー関数
 
+    Args:
+        pandas.DataFrame 値取得元の財務データ
+
+    Rerturn:
+        pandas.DataFrame 財務データから必要な値を抜き出しまとめたデータフレーム
+    """
     return df
 
 
-def _company_mapping(df: pd.DataFrame) -> pd.DataFrame:
+def _company_mapping(df: pd.DataFrame) -> dict:
+    # tomlに設定しているCSVの項目名を取得
+    mapping_dict = config["xbrl_mapping.company"]
+    for key, value in mapping_dict.items():
+        # TODO DataFrameから同じ値を持っている行を取得
+        print(key, value)
+    # TODO 返却するDataFrameを辞書データに変換
+    return mapping_dict
 
-    return df
+
+def _financial_item_mapping(df: pd.DataFrame) -> dict:
+    mapping_dict = {}
+    return mapping_dict
 
 
-def _financial_item_mapping(df: pd.DataFrame) -> pd.DataFrame:
+def _financial_report_mapping(df: pd.DataFrame) -> dict:
+    mapping_dict = {}
+    return mapping_dict
 
-    return df
-
-
-def _financial_report_mapping(df: pd.DataFrame) -> pd.DataFrame:
-
-    return df
-
-def _financial_data_mapping(df: pd.DataFrame) -> pd.DataFrame:
-
-    return df
+def _financial_data_mapping(df: pd.DataFrame) -> dict:
+    mapping_dict = {}
+    return mapping_dict
 
 
 def map_data_to_models(df) -> dict:
+    """
+    DBのモデルに対応する値をデータフレームから取得しマッピングする関数
+    """
     model_data_map = {
         ["Company"]: _company_mapping(df),
         ["Financial_report"]: _financial_report_mapping(df),
-        ["Financial_item"]:_financial_item_mapping(df),
-        ["Financial_data"]:_financial_data_mapping(df)
+        ["Financial_item"]: _financial_item_mapping(df),
+        ["Financial_data"]: _financial_data_mapping(df)
     }
     return model_data_map
 
@@ -280,9 +296,9 @@ def save_financial_data_to_db(df: pd.DataFrame) -> bool:
 
         # 3. トランザクション内で各モデルのデータをDBに挿入
         db.insert(Company,model_data_map["Company"])
-        db.insert(financial_report ,model_data_map["Financial_report"])
-        db.insert(financial_item,model_data_map["Financial_item"])
-        db.insert(financial_data,model_data_map["Financial_data"])
+        db.insert(Financial_report ,model_data_map["Financial_report"])
+        db.insert(Financial_item,model_data_map["Financial_item"])
+        db.insert(Financial_data,model_data_map["Financial_data"])
 
         logger.info("財務データのDB登録に成功しました。")
         return True
