@@ -1,5 +1,64 @@
 # api.py レビューコメント
 
+    """
+    
+   1. 関数の責務を単一にする
+       * 現状: データ抽出とカラム名マッピングの2つの責務を持っている。
+       * 修正案:
+           * カラム名マッピングの定義を外部ファイル（例: config.toml）に分離する。
+           * 関数は、データ抽出と整形処理に特化させる。
+
+
+   2. ハードコーディングされたカラム名を外部ファイルに切り出す
+       * 現状: jpdei_cor:EDINETCodeDEIのようなXBRL由来の要素名がコード内に直接記述されている。
+       * 修正案: config.tomlにモデルごとのマッピング情報を記載するセクションを追加する。
+
+
+   1         [column_mapping.Company]
+   2         edinet_code = "jpdei_cor:EDINETCodeDEI"
+   3         security_code = "jpdei_cor:SecurityCodeDEI"
+   4         company_name = "jpcrp_cor:CompanyNameCoverPage"
+   5         # ... 他のモデルも同様に定義
+
+
+
+   3. 拡張性の低い`match`文を汎用的な処理に置き換える
+       * 現状: モデルを追加するたびにmatch文の修正が必要。
+       * 修正案:
+           * dataframe_to_dict関数内で、[Company, Financial_data, ...]のように処理したいモデルのリストを定義する。
+           * リストをループし、各モデルに対応するマッピング情報をconfig.tomlから動的に読み込み、データ抽出処理を共通化する。
+
+
+   4. 不適切なデータ構造の修正
+       * 現状: columns = { ["edinet_code"]: [...] } のように、辞書のキーがリストになっている。
+       * 修正案: {'edinet_code': '...', 'company_name': '...'} のように、キーを文字列にした正しい辞書構造に修正する。（これはマッピングをconfig.tomlに切り出すことで解決されます）
+
+
+   5. 未実装・未定義のロジックを具体化する (`TODO`の解消)
+       * 現状: 「カテゴリはどうやって取得する？」など、仕様が未定義のまま。
+       * 修正案:
+           * カテゴリ: XBRLのコンテキスト（contextRef）や要素名から特定のキーワード（例: Consolidated, NonConsolidated）を基に判定ロジックを実装する。
+           * 会計年度・四半期: jpcrp_cor:QuarterlyAccountingPeriodCoverPage のような項目から、正規表現や文字列操作を用いて年と四半期を分離するロジックを実装する。
+           * 単位: unitRefカラムの値（例: JPY, USD）を基に判定するロジックを実装する。
+
+
+   6. CSVデータの構造に合わせた前処理を追加する
+       * 現状: 横持ちの可能性が高いCSVを、そのままカラム名で抽出しようとしている。
+       * 修正案:
+           * fetch_financial_data関数またはその後続処理で、pandas.meltなどを用いて、横持ちの財務データを「項目名、コンテキスト、単位、値」といった縦持ち形式のDataFrameに変換するステップを追加する。
+           * extract_dataframe_for_each_models（またはその後継の関数）は、この整形済みの縦持ちDataFrameを処理対象とする。
+
+
+   7. 不要なコードの削除
+       * 現状: model = model という不要な行が存在する。
+       * 修正案: この行を削除する。
+
+
+  これらの修正を行うことで、コードの可読性、保守性、拡張性が大幅に向上し、より堅牢な実装になります。
+    """
+
+
+
 `api.py`の`extract_dataframe_for_each_models`と`dataframe_to_dict`について、シニアエンジニアの視点でレビューします。
 過去のレビュー内容と関連ファイルを考慮し、以下の通り総合的なレビューと改善案をまとめました。
 
