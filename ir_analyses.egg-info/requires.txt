@@ -1,0 +1,11 @@
+requests
+pandas
+numpy
+streamlit
+psycopg2-binary
+matplotlib-fontja
+chardet
+toml
+ruff
+sqlalchemy
+pytest
