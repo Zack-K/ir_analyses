@@ -185,133 +185,45 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
     return company_financial_dataframe
 
 
-def extract_dataframe_for_each_models(model: type, df: pd.DataFrame):
+
+def standardize_raw_data(df:pd.DataFrame) -> pd.DataFrame:
     """
-    指定モデルに必要なカラムをDataFrameから抽出する関数
-
-    Args:
-        model: type 抽出するモデル SQLAlchemyモデルクラス
-        df:pd.DataFrame 財務データがまとめられている対象のDataFrame
-    Return:
-        df[model]:pd.DataFrame modelに必要なカラムのみを抽出したDataFrame
-
-    """
-
-    match model.__name__:
-        case "Company":
-            # Companyモデルに
-            columns = { 
-                ["edinet_code"]:["jpdei_cor:EDINETCodeDEI"],
-                ["security_code"]:["jpdei_cor:SecurityCodeDEI"],
-                ["industry_code"]:["jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"],
-                ["company_name"]:["jpcrp_cor:CompanyNameCoverPage"],
-            }
-               
-            ]
-
-            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-            df
-
-            return df[columns]
-
-        case "Financial_data":
-            # Financial_dataモデルに必要なDataFrameの要素IDを明示
-            columns = {
-                ["period_type"]:[],
-                ["consolidated_type"]:[],
-                ["duration_type"]:[],
-                ["value"]:[],
-                ["value_text"]:[],
-                ["is_numeric"]:[],
-            }
-            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-
-            return df[columns]
-        case "Financial_items":
-            # Financial_itemモデルに必要なDataFrameの要素IDを明示
-            columns = {
-                ["elemenem_namet_id"]:[], # これ何だっけ？必要？
-                ["item_name"]:["jpcrp_cor:DocumentTitleCoverPage"],
-                ["category"]:[],
-                # カテゴリってどうやって取得する？
-                ["unit_type"]:[]
-                # 会計基準が日本なら円、米国ならドルにする？ Lambda式でif文の判定する？
-            }
-
-            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-
-            return df[columns]
-
-        case "Financial_report":
-            # Financial_reportモデルに必要なDataFrameの要素IDを明示
-            columns = {
-                ["document_type"]:["jpcrp_cor:DocumentTitleCoverPage"],
-                ["fiscal_year"]:["jpcrp_cor:QuarterlyAccountingPeriodCoverPage"], # 会計年度の判定はどうする？ロジック必要？ Lambda式でif文の判定する？
-                ["quarter_type"]:["jpcrp_cor:QuarterlyAccountingPeriodCoverPage"], # 会計期間の判定はどうする？ロジック必要？Lambda式でif文の判定する？
-                ["fiscal_year_end"]:["jpdei_cor:CurrentPeriodEndDateDEI"],
-                ["filing_date"]:["jpcrp_cor:FilingDateCoverPage"],
-            }
-
-            # TODO DataFrameから上記 columsに対応する値を抽出、dfに設定
-
-            return df[columns]
-
-    """
+    生のDataFrameを、DBモデルにマッピングしやすいように整形・標準化する関数。
     
-   1. 関数の責務を単一にする
-       * 現状: データ抽出とカラム名マッピングの2つの責務を持っている。
-       * 修正案:
-           * カラム名マッピングの定義を外部ファイル（例: config.toml）に分離する。
-           * 関数は、データ抽出と整形処理に特化させる。
-
-
-   2. ハードコーディングされたカラム名を外部ファイルに切り出す
-       * 現状: jpdei_cor:EDINETCodeDEIのようなXBRL由来の要素名がコード内に直接記述されている。
-       * 修正案: config.tomlにモデルごとのマッピング情報を記載するセクションを追加する。
-
-
-   1         [column_mapping.Company]
-   2         edinet_code = "jpdei_cor:EDINETCodeDEI"
-   3         security_code = "jpdei_cor:SecurityCodeDEI"
-   4         company_name = "jpcrp_cor:CompanyNameCoverPage"
-   5         # ... 他のモデルも同様に定義
-
-
-
-   3. 拡張性の低い`match`文を汎用的な処理に置き換える
-       * 現状: モデルを追加するたびにmatch文の修正が必要。
-       * 修正案:
-           * dataframe_to_dict関数内で、[Company, Financial_data, ...]のように処理したいモデルのリストを定義する。
-           * リストをループし、各モデルに対応するマッピング情報をconfig.tomlから動的に読み込み、データ抽出処理を共通化する。
-
-
-   4. 不適切なデータ構造の修正
-       * 現状: columns = { ["edinet_code"]: [...] } のように、辞書のキーがリストになっている。
-       * 修正案: {'edinet_code': '...', 'company_name': '...'} のように、キーを文字列にした正しい辞書構造に修正する。（これはマッピングをconfig.tomlに切り出すことで解決されます）
-
-
-   5. 未実装・未定義のロジックを具体化する (`TODO`の解消)
-       * 現状: 「カテゴリはどうやって取得する？」など、仕様が未定義のまま。
-       * 修正案:
-           * カテゴリ: XBRLのコンテキスト（contextRef）や要素名から特定のキーワード（例: Consolidated, NonConsolidated）を基に判定ロジックを実装する。
-           * 会計年度・四半期: jpcrp_cor:QuarterlyAccountingPeriodCoverPage のような項目から、正規表現や文字列操作を用いて年と四半期を分離するロジックを実装する。
-           * 単位: unitRefカラムの値（例: JPY, USD）を基に判定するロジックを実装する。
-
-
-   6. CSVデータの構造に合わせた前処理を追加する
-       * 現状: 横持ちの可能性が高いCSVを、そのままカラム名で抽出しようとしている。
-       * 修正案:
-           * fetch_financial_data関数またはその後続処理で、pandas.meltなどを用いて、横持ちの財務データを「項目名、コンテキスト、単位、値」といった縦持ち形式のDataFrameに変換するステップを追加する。
-           * extract_dataframe_for_each_models（またはその後継の関数）は、この整形済みの縦持ちDataFrameを処理対象とする。
-
-
-   7. 不要なコードの削除
-       * 現状: model = model という不要な行が存在する。
-       * 修正案: この行を削除する。
-
-
-  これらの修正を行うことで、コードの可読性、保守性、拡張性が大幅に向上し、より堅牢な実装になります。
+    - カラム名を日本語から英語に統一する。
+    - '値'カラムを、数値とテキストに分類し、新しいカラムを作成する。
+    
+    Args:
+        df (pd.DataFrame): CSVから読み込んだ生のDataFrame。
+   
+    Returns:
+        pd.DataFrame: 整形済みのDataFrame。
     """
+
+    # カラム名を英語化、コード上からアクセスしやすくする
+    column_mapping = {
+        '要素ID':'element_id',
+        '項目名':'item_name_jp',
+        'コンテキストID':'context_id',
+        '連結・個別':'consolidated_type',
+        '期間・時点':'period_type',
+        'ユニットID': 'unit_id',
+        '単位':'unit_name',
+        '値':'original_value'
+    }
+
+    df_renamed = df.rename(columns=column_mapping)
+
+    # 値のデータ型変換　文字＝＞数値, 文字データは別のカラムで保持
+    df_renamed['value'] = pd.to_numeric(df_renamed['original_value'], errors='coerce')
+    df_renamed['is_numeric'] = df_renamed['value'].notna()
+    df_renamed['value_text'] = df_renamed["original_value"].where(~df_renamed["is_numeric"])
+
+    df_processed = df_renamed.drop(columns=['original_value'])
+
+    logger.info("データの標準化処理が完了しました。")
+    return df_processed 
+
 
 def dataframe_to_dict(df: pd.DataFrame) -> bool:
     """
