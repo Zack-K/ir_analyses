@@ -186,7 +186,7 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
 
 
 
-def standardize_raw_data(df:pd.DataFrame) -> pd.DataFrame:
+def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     生のDataFrameを、DBモデルにマッピングしやすいように整形・標準化する関数。
     
@@ -202,60 +202,91 @@ def standardize_raw_data(df:pd.DataFrame) -> pd.DataFrame:
 
     # カラム名を英語化、コード上からアクセスしやすくする
     column_mapping = {
-        '要素ID':'element_id',
-        '項目名':'item_name_jp',
-        'コンテキストID':'context_id',
-        '連結・個別':'consolidated_type',
-        '期間・時点':'period_type',
+        '要素ID': 'element_id',
+        '項目名': 'item_name_jp',
+        'コンテキストID': 'context_id',
+        '相対年度': 'fisical_year_relative',
+        '連結・個別': 'consolidated_type',
+        '期間・時点': 'period_type',
         'ユニットID': 'unit_id',
-        '単位':'unit_name',
-        '値':'original_value'
+        '単位': 'unit_name',
+        '値': 'original_value'
     }
-
     df_renamed = df.rename(columns=column_mapping)
 
     # 値のデータ型変換　文字＝＞数値, 文字データは別のカラムで保持
-    df_renamed['value'] = pd.to_numeric(df_renamed['original_value'], errors='coerce')
+    df_renamed['value'] = pd.to_numeric(df_renamed['original_value'],
+                                        errors='coerce')
+    # データ上、小数点が発生するものもあるため下二桁まで表示可能に設定
+    pd.set_option('display.float_format', '{:,.2f}'.format)
     df_renamed['is_numeric'] = df_renamed['value'].notna()
-    df_renamed['value_text'] = df_renamed["original_value"].where(~df_renamed["is_numeric"])
+    df_renamed['value_text'] = df_renamed["original_value"].where(
+        ~df_renamed["is_numeric"])
 
     df_processed = df_renamed.drop(columns=['original_value'])
 
     logger.info("データの標準化処理が完了しました。")
-    return df_processed 
+    return df_processed
 
 
-def dataframe_to_dict(df: pd.DataFrame) -> bool:
+def _get_value(df: pd.DataFrame) -> pd.DataFrame:
+
+    return df
+
+
+def _company_mapping(df: pd.DataFrame) -> pd.DataFrame:
+
+    return df
+
+
+def _financial_item_mapping(df: pd.DataFrame) -> pd.DataFrame:
+
+    return df
+
+
+def _financial_report_mapping(df: pd.DataFrame) -> pd.DataFrame:
+
+    return df
+
+def _financial_data_mapping(df: pd.DataFrame) -> pd.DataFrame:
+
+    return df
+
+
+def map_data_to_models(df) -> dict:
+    model_data_map = {
+        ["Company"]: _company_mapping(df),
+        ["Financial_report"]: _financial_report_mapping(df),
+        ["Financial_item"]:_financial_item_mapping(df),
+        ["Financial_data"]:_financial_data_mapping(df)
+    }
+    return model_data_map
+
+def save_financial_data_to_db(df: pd.DataFrame) -> bool:
     """
-    CSVから作成した財務データのpd.DataFrameをモデルごとにInsert可能なDictとして変換する関数
+    財務データDataFrameを前処理し、各モデルに対応するデータをDBに保存する関数。
 
     Args:
-        df: pd.DataFrame CSVから変換して作成した企業ごとの財務データ（データフレーム）
+        df: pd.DataFrame CSVから変換して作成した企業ごとの財務データ
 
     Return:
-        bool: すべてのモデルへのInsertの成功結果 成功:True, 失敗:False
+        bool: DBへの保存処理の成否
     """
-
-    # それぞれのモデルそ関数に引き渡し、返却されたDataFrameをdictに変換
-    company_values = extract_dataframe_for_each_models(Company, df).to_dict()
-    financial_data_values = extract_dataframe_for_each_models(
-        Financial_data, df
-    ).to_dict()
-    financial_item_values = extract_dataframe_for_each_models(
-        Financial_item, df
-    ).to_dict()
-    financial_report_values = extract_dataframe_for_each_models(
-        Financial_report, df
-    ).to_dict()
-
     try:
-        db.insert(Company, company_values)
-        db.insert(Financial_item, financial_item_values)
-        db.insert(Financial_report, financial_report_values)
-        db.insert(Financial_data, financial_data_values)
+        processed_df = standardize_raw_data(df)
+
+        # 2. 縦持ちデータを各モデル用の辞書リストにマッピング
+        model_data_map = map_data_to_models(processed_df)
+
+        # 3. トランザクション内で各モデルのデータをDBに挿入
+        db.insert(Company,model_data_map["Company"])
+        db.insert(financial_report ,model_data_map["Financial_report"])
+        db.insert(financial_item,model_data_map["Financial_item"])
+        db.insert(financial_data,model_data_map["Financial_data"])
+
+        logger.info("財務データのDB登録に成功しました。")
+        return True
 
     except Exception as e:
         logger.error("財務データのDB登録に失敗しました: %s", e)
         return False
-    finally:
-        return True
