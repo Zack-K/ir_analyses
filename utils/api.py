@@ -229,20 +229,35 @@ def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     return df_processed
 
 
-def _get_value(df: pd.DataFrame) -> pd.DataFrame:
+def _get_value(source_df: pd.DataFrame) -> pd.DataFrame:
     """
-    財務データのDataFrameから必要な値を取得・返却するヘルパー関数
+    財務データのDataFram 'source_df' から
+    特定の`element_id`と、オプションで`context_id`を持つ行を探し、
+    その`値`カラムの値を返すヘルパー関数
 
     Args:
-        pandas.DataFrame 値取得元の財務データ
+        source_df:pandas.DataFrame 値取得元の財務データ
 
     Rerturn:
         pandas.DataFrame 財務データから必要な値を抜き出しまとめたデータフレーム
     """
+
+    # TODO 1. element_idでDataFrameをフィルタリング
+    # TODO 2. content_idが指定されている場合、さらにフィルタリング、もし同じelement_idでもコンテキストに沿って取得可能
+    # TODO 3. 最初の値を取得し、返却。値がない場合はNoneまたはKeyErrorなど例外処理を実施
     return df
 
 
-def _company_mapping(df: pd.DataFrame) -> dict:
+def _company_mapping(source_df: pd.DataFrame) -> dict:
+    """
+    source_dfから会社情報を抽出し、Companyモデルに対応するdictを作るヘルパー関数
+   
+    Args:
+        source_df:pandas.DataFrame 値取得元の財務データ 
+
+    Rerturn:
+        dict Companyモデルへの値登録用辞書
+    """
     # tomlに設定しているCSVの項目名を取得
     mapping_dict = config["xbrl_mapping.company"]
     for key, value in mapping_dict.items():
@@ -252,16 +267,16 @@ def _company_mapping(df: pd.DataFrame) -> dict:
     return mapping_dict
 
 
-def _financial_item_mapping(df: pd.DataFrame) -> dict:
+def _financial_item_mapping(source_df: pd.DataFrame) -> dict:
     mapping_dict = {}
     return mapping_dict
 
 
-def _financial_report_mapping(df: pd.DataFrame) -> dict:
+def _financial_report_mapping(source_df: pd.DataFrame) -> dict:
     mapping_dict = {}
     return mapping_dict
 
-def _financial_data_mapping(df: pd.DataFrame) -> dict:
+def _financial_data_mapping(source_df: pd.DataFrame) -> dict:
     mapping_dict = {}
     return mapping_dict
 
