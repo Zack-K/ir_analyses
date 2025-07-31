@@ -6,6 +6,7 @@ import os
 import zipfile
 import glob
 import toml
+from typing import Union, Optional
 
 import chardet
 import pandas as pd
@@ -229,23 +230,40 @@ def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     return df_processed
 
 
-def _get_value(source_df: pd.DataFrame) -> pd.DataFrame:
+def _get_value(source_df: pd.DataFrame,
+               element_id: str,
+               context_id: Optional[str] = None) -> Union[float, str, None]:
     """
     財務データのDataFram 'source_df' から
     特定の`element_id`と、オプションで`context_id`を持つ行を探し、
     その`値`カラムの値を返すヘルパー関数
 
     Args:
-        source_df:pandas.DataFrame 値取得元の財務データ
-
+        source_df : pandas.DataFrame 値取得元の財務データ
+        element_id : str 値取得条件となる項目ID
+        context_id : str 項目IDが重複した場合にわたすコンテンツID(初期値：None)
     Rerturn:
-        pandas.DataFrame 財務データから必要な値を抜き出しまとめたデータフレーム
+        Union[float, str, None]: 財務データから取得した値。数値、文字列、または見つからない場合はNone。
     """
 
-    # TODO 1. element_idでDataFrameをフィルタリング
-    # TODO 2. content_idが指定されている場合、さらにフィルタリング、もし同じelement_idでもコンテキストに沿って取得可能
-    # TODO 3. 最初の値を取得し、返却。値がない場合はNoneまたはKeyErrorなど例外処理を実施
-    return df
+    try:
+        extract_df = source_df[source_df['element_id'] == element_id]
+        logger.info("element_idと一致する行を取得しました")
+
+        if len(extract_df) > 1 and context_id:
+            extract_df = extract_df[extract_df['context_id'] == context_id]
+
+        target_row = extract_df.iloc[0]
+        if target_row['is_numeric']:
+            extract_value = target_row['value']
+            logger.info("element_idと一致する行から数値データを取得しました")
+        else:
+            extract_value = target_row['value_text']
+            logger.info("element_idと一致する行から文字データを取得しました")
+        return extract_value
+    except (KeyError, IndexError) as e:
+        logger.error("値の取得処理中に予期せぬエラーが発生しました (ID: %s): %s", element_id, e)
+        return None
 
 
 def _company_mapping(source_df: pd.DataFrame) -> dict:
