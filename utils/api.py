@@ -304,7 +304,7 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
 
     company_data = {
             key: _get_value(source_df, element_id)
-            for key, element_id in mapping_dict.item()
+            for key, element_id in mapping_dict.items()
         }
     
     return company_data

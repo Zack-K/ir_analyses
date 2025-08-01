@@ -39,7 +39,7 @@ def sample_source_df() -> pd.DataFrame:
     df = pd.DataFrame(data)
     return df
 
-def test_company_mapping_success(sample_source_df):
+def test_company_mapping_success(sample_source_df, monkeypatch):
     """
     _company_mapping関数が正しくDataFrameを辞書に変換できるかをテストする
     """
@@ -51,8 +51,12 @@ def test_company_mapping_success(sample_source_df):
         "industry_code": "XYZ",
     }
 
-    # 2. 実際にテスト対象の関数を呼び出す
+    # 2. テスト用の設定を読み込み、グローバル変数をパッチする
+    test_config = api.load_config(r"C:\Users\NDY09\Documents\ir_analyses\config\config.toml")
+    monkeypatch.setattr(api, 'config', test_config)
+
+    # 3. 実際にテスト対象の関数を呼び出す
     result_dict = api._company_mapping(sample_source_df)
 
-    # 3. 結果が期待通りか検証する
+    # 4. 結果が期待通りか検証する
     assert result_dict == expected_dict
