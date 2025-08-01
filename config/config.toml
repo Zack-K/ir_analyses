@@ -39,7 +39,7 @@ API_DOWNLOAD = "https://api.edinet-fsa.go.jp/api/v2"
 	[xbrl_mapping.company]
 	edinet_code = "jpdei_cor:EDINETCodeDEI"
 	security_code = "jpdei_cor:SecurityCodeDEI"
-	industry_code ="jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"
+	industry_code = "jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"
 	company_name = "jpcrp_cor:CompanyNameCoverPage" 
 
 
