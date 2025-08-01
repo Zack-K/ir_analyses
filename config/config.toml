@@ -35,23 +35,20 @@ API_DOWNLOAD = "https://api.edinet-fsa.go.jp/api/v2"
 # 各DBモデルに対応するデータを抽出・登録することを想定しています。
 ==============================================================================
 [xbrl_mapping]
-	# 会社情報テーブル(Company)
-	[xbrl_mapping.company]
-	edinet_code = "jpdei_cor:EDINETCodeDEI"
-	security_code = "jpdei_cor:SecurityCodeDEI"
-	industry_code = "jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"
-	company_name = "jpcrp_cor:CompanyNameCoverPage" 
+    # 会社情報テーブル(Company)
+    [xbrl_mapping.company]
+    edinet_code = "jpdei_cor:EDINETCodeDEI"
+    security_code = "jpdei_cor:SecurityCodeDEI"
+    industry_code = "jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"
+    company_name = "jpcrp_cor:CompanyNameCoverPage"
 
-
-	# 財務報告書情報 (financial_reportsテーブル)
-	[xbrl_mapping.financial_report]
-	document_type = "jpcrp_cor:DocumentTitleCoverPage"
-
-	#「会計年度」と「四半期」はこの要素から分割して取得する必要があります
-	fiscal_year_and_quarter = "jpcrp_cor:QuarterlyAccountingPeriodCoverPage"
-	fiscal_year_end = "jpdei_cor:CurrentPeriodEndDateDEI"
-
-	filing_date = "jpcrp_cor:FilingDateCoverPage"
+    # 財務報告書情報 (financial_reportsテーブル)
+    [xbrl_mapping.financial_report]
+    document_type = "jpcrp_cor:DocumentTitleCoverPage"
+    #「会計年度」と「四半期」はこの要素から分割して取得する必要があります
+    fiscal_year_and_quarter = "jpcrp_cor:QuarterlyAccountingPeriodCoverPage"
+    fiscal_year_end = "jpdei_cor:CurrentPeriodEndDateDEI"
+    filing_date = "jpcrp_cor:FilingDateCoverPage"
 
 ==============================================================================
 # 補足: financial_items と financial_dataについて
