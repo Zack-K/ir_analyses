@@ -19,32 +19,51 @@ import utils.db_controller as db
 logger = logging.getLogger(__name__)
 
 
+
 # streamlitの設定読み込み
-def load_config():
-    """環境に応じて設定ファイルを読み込む関数
+def load_config(path: str = None) -> dict:
+    """
+    設定ファイル（config.toml）を読み込む。
+
+    テスト時など、特定のパスから読み込みたい場合はpath引数を指定する。
+    指定しない場合は、このファイルの位置を基準にプロジェクトルートを特定し、
+    `config/config.toml` を読み込む。
+
+    Args:
+        path (str, optional): 読み込む設定ファイルの絶対パス. Defaults to None.
 
     Returns:
-        dict: 設定ファイルの内容、または空のdict
+        dict: 設定ファイルの内容。読み込みに失敗した場合は空の辞書。
     """
-    # 環境に応じた設定ファイルパスを試行
-    config_paths = [
-        "/config/config.toml",  # Docker環境
-        "./config/config.toml",  # ローカル環境（プロジェクトルートから実行）
-        "config/config.toml",  # ローカル環境（相対パス）
-    ]
+    paths_to_check = []
+    if path:
+        # テスト時など、特定のパスが指定された場合
+        paths_to_check.append(path)
+    else:
+        # 通常実行時：このファイルの場所を基準にパスを解決
+        try:
+            current_file_path = os.path.abspath(__file__)
+            utils_dir = os.path.dirname(current_file_path)
+            project_root = os.path.dirname(utils_dir)
+            default_config_path = os.path.join(project_root, "config", "config.toml")
+            paths_to_check.append(default_config_path)
+        except NameError:
+            # 対話モードなどで __file__ が未定義の場合のフォールバック
+            paths_to_check.append("./config/config.toml")
 
-    for config_path in config_paths:
+
+    for config_path in paths_to_check:
         if os.path.exists(config_path):
             try:
-                config = toml.load(config_path)
-                logger.info("設定ファイル読み込み成功:%s", config_path)
-                return config
+                config_data = toml.load(config_path)
+                logger.info("設定ファイルを読み込みました: %s", config_path)
+                return config_data  # ★成功したら即座に返す
             except Exception as e:
-                logger.error("設定ファイル読み込み失敗:%s", e)
-                continue
+                logger.error("設定ファイルの読み込みに失敗しました: %s, エラー: %s", config_path, e)
+                continue # 次の候補パスへ
 
-    logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
-    return {}
+    logger.warning("有効な設定ファイルが見つかりませんでした。")
+    return {} # すべての候補で見つからなかった場合
 
 
 # 設定の読み込み
@@ -276,13 +295,19 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
     Rerturn:
         dict Companyモデルへの値登録用辞書
     """
-    # tomlに設定しているCSVの項目名を取得
-    mapping_dict = config["xbrl_mapping.company"]
-    for key, value in mapping_dict.items():
-        # TODO DataFrameから同じ値を持っている行を取得
-        print(key, value)
-    # TODO 返却するDataFrameを辞書データに変換
-    return mapping_dict
+    try:
+        mapping_dict = config["xbrl_mapping"]["company"]
+    except KeyError as e:
+        logger.error("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
+        return {}
+    
+
+    company_data = {
+            key: _get_value(source_df, element_id)
+            for key, element_id in mapping_dict.item()
+        }
+    
+    return company_data
 
 
 def _financial_item_mapping(source_df: pd.DataFrame) -> dict:
@@ -303,13 +328,18 @@ def map_data_to_models(df) -> dict:
     """
     DBのモデルに対応する値をデータフレームから取得しマッピングする関数
     """
+    
+    df = standardize_raw_data(df)
+    df = _company_mapping(df)
+    """
     model_data_map = {
         ["Company"]: _company_mapping(df),
         ["Financial_report"]: _financial_report_mapping(df),
         ["Financial_item"]: _financial_item_mapping(df),
         ["Financial_data"]: _financial_data_mapping(df)
     }
-    return model_data_map
+    """
+    return df
 
 def save_financial_data_to_db(df: pd.DataFrame) -> bool:
     """
