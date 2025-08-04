@@ -253,16 +253,25 @@ def _get_value(source_df: pd.DataFrame,
                element_id: str,
                context_id: Optional[str] = None) -> Union[float, str, None]:
     """
-    財務データのDataFram 'source_df' から
-    特定の`element_id`と、オプションで`context_id`を持つ行を探し、
-    その`値`カラムの値を返すヘルパー関数
+    標準化されたDataFrameから、特定の要素IDに一致する単一の値を安全に抽出する。
+
+    このヘルパー関数は、`element_id`を必須のキーとしてDataFrameを検索する。
+    `context_id`が指定された場合、`element_id`が重複する際の絞り込み条件として使用される。
+
+    検索の結果、行が見つからない場合や、行から値の抽出に失敗した場合は、
+    エラーをログに記録し、例外を送出せずに`None`を返す。
 
     Args:
-        source_df : pandas.DataFrame 値取得元の財務データ
-        element_id : str 値取得条件となる項目ID
-        context_id : str 項目IDが重複した場合にわたすコンテンツID(初期値：None)
-    Rerturn:
-        Union[float, str, None]: 財務データから取得した値。数値、文字列、または見つからない場合はNone。
+        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
+        element_id (str): 抽出したいデータのXBRL要素ID。
+        context_id (Optional[str], optional):
+            `element_id`だけでは一意に定まらない場合に使用するコンテキストID。
+            Defaults to None.
+
+    Returns:
+        Union[float, str, None]:
+            抽出された値（数値または文字列）。
+            対応するデータが見つからない場合は `None`。
     """
 
     try:
@@ -287,26 +296,46 @@ def _get_value(source_df: pd.DataFrame,
 
 def _company_mapping(source_df: pd.DataFrame) -> dict:
     """
-    source_dfから会社情報を抽出し、Companyモデルに対応するdictを作るヘルパー関数
-   
-    Args:
-        source_df:pandas.DataFrame 値取得元の財務データ 
+    source_dfから会社情報を抽出し、Companyモデルに対応するdictを作成する。
 
-    Rerturn:
-        dict Companyモデルへの値登録用辞書
+    本関数は、`config.toml`の`[xbrl_mapping.company]`に基づいて、
+    DataFrameから会社関連の情報を抽出・マッピングします。
+
+    処理中に以下の検証を行い、問題があれば例外を送出します。
+    1.  `config.toml`に必須セクションが存在するか
+    2.  `Company`モデルの必須項目 (`edinet_code`, `company_name`) が
+        DataFrameから取得可能か
+
+    Args:
+        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame
+
+    Raises:
+        KeyError: `config.toml`に`["xbrl_mapping"]["company"]`セクションが存在しない場合
+        ValueError: 必須項目 (`edinet_code`, `company_name`) が`source_df`から見つからなかった場合
+
+    Returns:
+        dict: `Company`モデルのインスタンス化に使用できる属性の辞書
     """
     try:
         mapping_dict = config["xbrl_mapping"]["company"]
     except KeyError as e:
         logger.error("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
-        return {}
+        raise
     
-
+    # すべてのデータを取得する
     company_data = {
             key: _get_value(source_df, element_id)
             for key, element_id in mapping_dict.items()
         }
-    
+    #　必須項目のチェック
+    required_keys = ["edinet_code", "company_name"]
+    missing_keys = [key for key in required_keys if company_data.get(key) is None]
+
+    if missing_keys:
+        error_message = f"必須項目が見つかりませんでした：{','.join(missing_keys)}"
+        logger.error(error_message)
+        raise ValueError(error_message)
+
     return company_data
 
 
