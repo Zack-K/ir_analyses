@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from utils import api
+from unittest.mock import patch
 
 # テスト用のDataFrameを準備する
 @pytest.fixture
@@ -38,6 +39,23 @@ def sample_source_df() -> pd.DataFrame:
     }
     df = pd.DataFrame(data)
     return df
+
+
+def test_company_mapping_raise_key_error_on_invalid_config(sample_source_df):
+    """
+    _company_mapping関数の異常系テスト: 設定ファイルが不正なケース。
+
+    `utils.api.config` グローバル変数を `unittest.mock.patch.dict` を用いて
+    一時的に書き換え、`["xbrl_mapping"]["company"]` セクションが存在しない
+    状況をシミュレートする。
+
+    この状況で `_company_mapping` 関数を呼び出した際に、
+    正しく `KeyError` が送出されることを検証する。
+    """
+    with patch.dict(api.config, {'xbrl_mapping':{}}):
+        with pytest.raises(KeyError):
+            api._company_mapping(sample_source_df)
+
 
 def test_company_mapping_success(sample_source_df, monkeypatch):
     """
