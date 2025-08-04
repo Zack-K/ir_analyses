@@ -46,9 +46,11 @@ services:
       POSTGRES_DB: mydatabase
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./scripts:/docker-entrypoint-initdb.d:ro
+      - ./sql:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     restart: unless-stopped
