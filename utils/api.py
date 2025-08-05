@@ -314,14 +314,14 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
         ValueError: 必須項目 (`edinet_code`, `company_name`) が`source_df`から見つからなかった場合
 
     Returns:
-        dict: `Company`モデルのインスタンス化に使用できる属性の辞書
+        dict: DataFrameから抽出した`Company`モデルに対応する会社情報の辞書
     """
     try:
         mapping_dict = config["xbrl_mapping"]["company"]
     except KeyError as e:
         logger.error("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
         raise
-    
+
     # すべてのデータを取得する
     company_data = {
             key: _get_value(source_df, element_id)
@@ -339,17 +339,78 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
     return company_data
 
 
-def _financial_item_mapping(source_df: pd.DataFrame) -> dict:
+def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
+    """
+    DataFrameからユニークな財務項目を抽出し、Financial_itemモデル用の辞書のリストを作成する。
+
+    本関数は、DataFrameに存在するすべての財務項目（例: `jppfs_cor:`で始まる要素）を
+    スキャンし、重複を除外した上で、`Financial_item`モデルのスキーマに準拠した
+    辞書のリストを生成します。
+
+    `config.toml`の補足説明に基づき、`category`はコンテキストIDに含まれる
+    キーワード（例: "Consolidated"）や要素IDのプレフィックスから動的に判定されます。
+
+    Args:
+        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
+
+    Returns:
+        list[dict]: `Financial_item`モデルに対応する財務項目辞書のリスト。
+                     各辞書はユニークな財務項目を表す。
+    """
+    financial_item_list = []
+    # (ここに実装を追加)
+    return financial_item_list
+
+
+def _financial_report_mapping(source_df: pd.DataFrame,
+                              company_id: int) -> dict:
+    """
+    DataFrameから報告書情報を抽出し、Financial_reportモデル用の辞書を作成する。
+
+    `config.toml`の`[xbrl_mapping.financial_report]`セクションの定義に基づき、
+    DataFrameから報告書関連の情報をマッピングします。
+
+    特に、`fiscal_year_and_quarter`キーで指定された要素IDの値
+    （例: "第85期第３四半期..."）から正規表現を用いて会計年度と四半期を抽出し、
+    それぞれ`fiscal_year`と`quarter_type`に設定します。
+
+    Args:
+        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
+        company_id (int): この報告書が紐づく会社のID (`companies.company_id`)。
+
+    Returns:
+        dict: `Financial_report`モデルに対応する報告書情報の辞書。
+
+    Raises:
+        KeyError: `config.toml`に`[xbrl_mapping.financial_report]`セクションが存在しない場合。
+        ValueError: 会計年度や四半期の文字列から値のパースに失敗した場合。
+    """
     mapping_dict = {}
+    # (ここに実装を追加)
     return mapping_dict
 
 
-def _financial_report_mapping(source_df: pd.DataFrame) -> dict:
-    mapping_dict = {}
-    return mapping_dict
+def _financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]) -> list[dict]:
+    """
+    DataFrameの各行を走査し、Financial_dataモデル用の辞書のリストに変換する。
 
-def _financial_data_mapping(source_df: pd.DataFrame) -> dict:
+    本関数は、`config.toml`の補足説明にある通り、静的なマッピング定義を使用せず、
+    財務データが含まれる行を動的に処理します。
+
+    `item_id`は、引数で受け取る`item_id_map`を用いて、行の`element_id`から
+    DBの主キーに解決されます。また、`値`カラムの内容に応じて`value` (数値) と
+    `value_text` (文字列) に振り分け、`is_numeric`フラグを設定します。
+
+    Args:
+        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
+        report_id (int): このデータが紐づく報告書のID (`financial_reports.report_id`)。
+        item_id_map (dict[str, int]): XBRLの要素IDをキー、DBの`item_id`を値とする辞書。
+
+    Returns:
+        list[dict]: `Financial_data`モデルに対応する財務データ辞書のリスト。
+    """
     mapping_dict = {}
+    # (ここに実装を追加)
     return mapping_dict
 
 
@@ -357,7 +418,7 @@ def map_data_to_models(df) -> dict:
     """
     DBのモデルに対応する値をデータフレームから取得しマッピングする関数
     """
-    
+
     df = standardize_raw_data(df)
     df = _company_mapping(df)
     """
