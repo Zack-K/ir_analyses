@@ -6,6 +6,7 @@ import os
 import zipfile
 import glob
 import toml
+import re
 from typing import Union, Optional
 
 import chardet
@@ -225,7 +226,7 @@ def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
         '要素ID': 'element_id',
         '項目名': 'item_name_jp',
         'コンテキストID': 'context_id',
-        '相対年度': 'fisical_year_relative',
+        '相対年度': 'fiscal_year_relative',
         '連結・個別': 'consolidated_type',
         '期間・時点': 'period_type',
         'ユニットID': 'unit_id',
@@ -371,8 +372,8 @@ def _financial_report_mapping(source_df: pd.DataFrame,
     DataFrameから報告書関連の情報をマッピングします。
 
     特に、`fiscal_year_and_quarter`キーで指定された要素IDの値
-    （例: "第85期第３四半期..."）から正規表現を用いて会計年度と四半期を抽出し、
-    それぞれ`fiscal_year`と`quarter_type`に設定します。
+    （例: "2025年3月期第３四半期"）から正規表現を用いて会計年度と四半期を抽出し、
+    それぞれ`fiscal_year`（String(4)）と`quarter_type`に設定します。
 
     Args:
         source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
@@ -385,10 +386,130 @@ def _financial_report_mapping(source_df: pd.DataFrame,
         KeyError: `config.toml`に`[xbrl_mapping.financial_report]`セクションが存在しない場合。
         ValueError: 会計年度や四半期の文字列から値のパースに失敗した場合。
     """
-    mapping_dict = {}
-    # (ここに実装を追加)
-    return mapping_dict
+    try:
+        mapping_dict = config["xbrl_mapping"]["financial_report"]
+    except KeyError as e:
+        logger.error(
+            "設定ファイルに[\"xbrl_mapping\"][\"financial_report\"]の定義が見つかりません。")
+        raise
 
+    financial_report_data = {
+        key: _get_value(source_df, element_id)
+        for key, element_id in mapping_dict.items()
+    }
+
+    financial_report_data['company_id'] = company_id
+
+    # 会計年度と四半期情報を取得
+    fiscal_year_and_quarter = financial_report_data.get('fiscal_year_and_quarter')
+    if fiscal_year_and_quarter is None:
+        error_message = "fiscal_year_and_quarterキーが設定ファイルに定義されていません"
+        logger.error(error_message)
+        raise ValueError(error_message)
+
+    content = str(fiscal_year_and_quarter)
+    if not content or content == 'None':
+        error_message = f"fiscal_year_and_quarterの値が無効です: '{content}'"
+        logger.error(error_message)
+        raise ValueError(error_message)
+
+    # 会計年度を抽出（String型で保存）
+    fiscal_year = _extract_fiscal_year(content)
+    if fiscal_year is not None:
+        financial_report_data['fiscal_year'] = fiscal_year 
+    else:
+        logger.error("会計年度の抽出に失敗しました。処理を中断します。") 
+        raise ValueError(f"会計年度の抽出に失敗しました: '{content}'")
+
+    # 四半期を抽出
+    quarter_type = _extract_quarter_type(content)
+    if quarter_type is not None:
+        financial_report_data['quarter_type'] = quarter_type
+    else:
+        logger.error("四半期の抽出に失敗しました。処理を中断します。")
+        raise ValueError(f"四半期の抽出に失敗しました: '{content}'")
+
+    return financial_report_data
+
+
+def _extract_fiscal_year(content: str) -> Optional[str]:
+    """
+    実際のXBRLデータ形式に対応した会計年度抽出
+    
+    例: "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
+    """
+    # パターン1: 日付範囲から西暦を抽出
+    pattern_date_range = r'自\s*(\d{4})年.*?至\s*(\d{4})年'
+    match_date = re.search(pattern_date_range, content)
+    if match_date:
+        start_year = int(match_date.group(1))
+        end_year = int(match_date.group(2))
+        # 通常、会計年度は終了年度を使用
+        return str(end_year)
+    
+    # パターン2: 単純な4桁年度パターン
+    pattern_year = r'(\d{4})'
+    match_year = re.search(pattern_year, content)
+    if match_year:
+        year_str = match_year.group(1)
+        year_int = int(year_str)
+        if 1990 <= year_int <= 2100:
+            return year_str
+    
+    logger.warning("会計年度の抽出に失敗しました: '%s'", content)
+    return None
+
+
+def _extract_quarter_type(content: str) -> Optional[str]:
+    """
+    実際のXBRLデータ形式に対応した四半期抽出
+    
+    例: "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
+    """
+    pattern_quarter = r'第\s*([0-4０-４一二三四１２３４]+)\s*四半期'
+    match_quarter = re.search(pattern_quarter, content)
+    
+    if match_quarter is None:
+        logger.warning("四半期の抽出に失敗しました: '%s'", content)
+        return None
+
+    quarter_text = match_quarter.group(1).strip()
+    quarter_num = _convert_quarter_to_number(quarter_text)
+
+    if quarter_num is not None and 1 <= quarter_num <= 4:
+        return f"Q{quarter_num}"
+    else:
+        logger.warning("四半期の変換に失敗しました: '%s' (content: '%s')", 
+                      quarter_text, content)
+        return None
+
+
+def _convert_quarter_to_number(quarter_text: str) -> Optional[int]:
+    """
+    抽出した四半期文字列を数値型に変換するヘルパー関数
+    
+    Args:
+        quarter_text (str): 四半期を表す文字列（漢数字、全角数字、半角数字）
+        
+    Returns:
+        Optional[int]: 変換された四半期番号（1-4）。変換できない場合はNone。
+    """
+    to_number_mapping = {
+        "一": 1, "二": 2, "三": 3, "四": 4,
+        "１": 1, "２": 2, "３": 3, "４": 4,  # 全角数字
+        "1": 1, "2": 2, "3": 3, "4": 4      # 半角数字
+    }
+
+    if quarter_text in to_number_mapping:
+        return to_number_mapping[quarter_text]
+    
+    # 直接数値変換を試行
+    try:
+        num = int(quarter_text)
+        return num if 1 <= num <= 4 else None
+    except ValueError:
+        logger.warning("四半期文字列の変換に失敗しました: '%s'", quarter_text)
+        return None
 
 def _financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]) -> list[dict]:
     """
