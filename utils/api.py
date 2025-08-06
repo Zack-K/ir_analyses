@@ -402,16 +402,14 @@ def _financial_report_mapping(source_df: pd.DataFrame,
 
     # 会計年度と四半期情報を取得
     fiscal_year_and_quarter = financial_report_data.get('fiscal_year_and_quarter')
-    if fiscal_year_and_quarter is None:
-        error_message = "fiscal_year_and_quarterキーが設定ファイルに定義されていません"
+
+    # 値の検証：Noneや空文字列の場合は不正な値としてエラーを送出
+    if fiscal_year_and_quarter is None or fiscal_year_and_quarter == "":
+        error_message = f"fiscal_year_and_quarterの値が無効です: '{fiscal_year_and_quarter}'"
         logger.error(error_message)
         raise ValueError(error_message)
 
     content = str(fiscal_year_and_quarter)
-    if not content or content == 'None':
-        error_message = f"fiscal_year_and_quarterの値が無効です: '{content}'"
-        logger.error(error_message)
-        raise ValueError(error_message)
 
     # 会計年度を抽出（String型で保存）
     fiscal_year = _extract_fiscal_year(content)
