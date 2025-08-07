@@ -73,7 +73,7 @@ CSVを `pandas.read_csv(..., sep='\t')` で読み込んだDataFrameを `source_d
 
 `financial_items`はマスターテーブルであり、`element_id`にユニーク制約があるため、単純にCSVの項目を毎回登録することはできません。そのため、**「DBとの差分をチェックし、存在しない項目のみを登録する」**というロジックが不可欠です。
 
-この処理は、`_financial_item_mapping`関数と、それを呼び出す上位の処理フロー（例: `save_financial_data_to_db`）とで、以下のように役割を分担します。
+この処理は、`_financial_item_mapping`関数と、それを呼び出す上位の処理フロー（例: `save_financial_bundle`）とで、以下のように役割を分担します。
 
 #### `_financial_item_mapping(source_df: pd.DataFrame) -> list[dict]` の修正方針
 
@@ -108,53 +108,29 @@ CSVを `pandas.read_csv(..., sep='\t')` で読み込んだDataFrameを `source_d
 
 ### 4.1. `api.py`のメイン処理フロー (`save_financial_bundle`)
 
-`save_financial_data_to_db`を`save_financial_bundle`に改名し、以下のロジックを実装します。
+`save_financial_data_to_db`を`save_financial_bundle`に改名し、一連のデータマッピングと永続化処理を統括する最上位の関数として、以下の仕様で実装します。
 
-```python
-# in api.py
-def save_financial_bundle(df: pd.DataFrame) -> bool:
-    # 1. データ標準化
-    processed_df = standardize_raw_data(df)
+1.  **データ標準化**: まず、入力されたDataFrameに対し`standardize_raw_data`を呼び出し、カラム名の統一やデータ型の変換などの前処理を行います。
 
-    # 2. 会社情報の取得とDB永続化
-    company_data = _company_mapping(processed_df)
-    company_id = db.get_or_create_company(company_data)
-    if not company_id:
-        logger.error("会社の取得または作成に失敗しました。")
-        return False
+2.  **会社情報の特定と永続化**: 
+    1.  `_company_mapping`を呼び出して、DataFrameから会社情報を抽出します。
+    2.  `db_controller.get_or_create_company`に会社情報を渡し、DBに会社が存在するか確認します。なければ新規登録し、いずれの場合も対応する`company_id`を取得します。処理に失敗した場合は、エラーを記録して中断します。
 
-    # 3. 財務項目マスターの取得と差分登録
-    # 3-1. CSVから候補リストを作成
-    item_candidates = _financial_item_mapping(processed_df)
-    candidate_element_ids = [item['element_id'] for item in item_candidates]
+3.  **財務項目マスターの差分更新**:
+    1.  `_financial_item_mapping`を呼び出し、DataFrameから財務項目の「候補リスト」を作成します。
+    2.  候補リストから`element_id`の一覧を抽出し、`db_controller.get_items_by_element_ids`に渡して、DBに既に存在する項目のIDマップ（`{element_id: item_id}`）を取得します。
+    3.  候補リストと既存項目のIDマップを比較し、DBにまだ存在しない**新規項目のみ**を抽出します。
+    4.  新規項目があれば、`db_controller.bulk_insert_items`に渡して`financial_items`テーブルに一括登録します。
+    5.  再度`db_controller.get_items_by_element_ids`を呼び出し、新規登録分も含めた**完全なIDマップ**を取得します。これは後続の`_financial_data_mapping`で使用します。
 
-    # 3-2. DBから既存項目を取得
-    existing_items_map = db.get_items_by_element_ids(candidate_element_ids)
-    existing_element_ids = set(existing_items_map.keys())
+4.  **財務報告書と財務データのマッピング**:
+    1.  `_financial_report_mapping`を呼び出し、財務報告書のデータを作成します。この際、`company_id`を渡します。
+    2.  `_financial_data_mapping`を呼び出す準備として、上記で作成した完全なIDマップを渡せるようにします。
 
-    # 3-3. 新規項目のみを抽出してDBに登録
-    new_items_to_insert = [item for item in item_candidates if item['element_id'] not in existing_element_ids]
-    if new_items_to_insert:
-        db.bulk_insert_items(new_items_to_insert)
+5.  **データの一括保存**:
+    1.  `db_controller`に新しく作成する`save_report_and_data`関数を呼び出します。
+    2.  この関数には、作成した**財務報告書データ**と**財務データリスト**を渡します。`db_controller`側は、これらを単一のトランザクション内でアトミックに保存する責務を持ちます。（詳細は4.2節を参照）
 
-    # 3-4. 完全なIDマップを作成
-    # 再度DBから全項目を取得して、最新のIDで完全なマップを作成
-    final_item_id_map = db.get_items_by_element_ids(candidate_element_ids)
-
-    # 4. 財務報告書と財務データのマッピング
-    report_data = _financial_report_mapping(processed_df, company_id)
-    # report_dataからfiscal_year_and_quarterを削除
-    report_data.pop('fiscal_year_and_quarter', None)
-
-    # _financial_data_mappingを呼び出す前に、reportをDBに保存してreport_idを取得する必要がある
-    # これはsave_financial_bundleの責務
-
-    # 5. トランザクション内で一括保存
-    # report_dataと、これから作成するfinancial_data_listをdb_controllerに渡す
-    # financial_data_list = _financial_data_mapping(processed_df, report_id, final_item_id_map)
-    # return db.save_report_and_data(report_data, financial_data_list)
-    return True # 未実装のため暫定
-```
 
 ### 4.2. `db_controller.py`の拡張
 

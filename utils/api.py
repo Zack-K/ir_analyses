@@ -342,25 +342,28 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
 
 def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     """
-    DataFrameからユニークな財務項目を抽出し、Financial_itemモデル用の辞書のリストを作成する。
+    DataFrameからユニークな財務項目を抽出し、DB登録候補の辞書リストを作成する。
 
-    本関数は、DataFrameに存在するすべての財務項目（例: `jppfs_cor:`で始まる要素）を
-    スキャンし、重複を除外した上で、`Financial_item`モデルのスキーマに準拠した
-    辞書のリストを生成します。
+    この関数の責務は、渡されたDataFrameから財務項目を抜き出し、`Financial_item`
+    モデルのスキーマに準拠した辞書のリストとして整形することに限定される。
+    データベースへの問い合わせや重複チェックは行わない。
 
-    `config.toml`の補足説明に基づき、`category`はコンテキストIDに含まれる
-    キーワード（例: "Consolidated"）や要素IDのプレフィックスから動的に判定されます。
+    実際のDB登録処理は、この関数が返した「候補リスト」を基に、上位の処理フロー
+    （例: `save_financial_data_to_db`）が既存データとの差分を考慮して行う。
 
     Args:
         source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
 
     Returns:
-        list[dict]: `Financial_item`モデルに対応する財務項目辞書のリスト。
-                     各辞書はユニークな財務項目を表す。
+        list[dict]: `Financial_item`モデルに対応する財務項目辞書の候補リスト。
     """
-    financial_item_list = []
-    # (ここに実装を追加)
-    return financial_item_list
+
+    # dfから財務項目行をフィルタリング
+    # element_idを基に重複を排除
+    # 重複排除した各行をループ処理してまとめる
+    # 'item_name_jp'の項目を抽出
+    item_id_map = []
+    return item_id_map
 
 
 def _financial_report_mapping(source_df: pd.DataFrame,
@@ -414,9 +417,9 @@ def _financial_report_mapping(source_df: pd.DataFrame,
     # 会計年度を抽出（String型で保存）
     fiscal_year = _extract_fiscal_year(content)
     if fiscal_year is not None:
-        financial_report_data['fiscal_year'] = fiscal_year 
+        financial_report_data['fiscal_year'] = fiscal_year
     else:
-        logger.error("会計年度の抽出に失敗しました。処理を中断します。") 
+        logger.error("会計年度の抽出に失敗しました。処理を中断します。")
         raise ValueError(f"会計年度の抽出に失敗しました: '{content}'")
 
     # 四半期を抽出
@@ -444,7 +447,7 @@ def _extract_fiscal_year(content: str) -> Optional[str]:
         end_year = int(match_date.group(2))
         # 通常、会計年度は終了年度を使用
         return str(end_year)
-    
+
     # パターン2: 単純な4桁年度パターン
     pattern_year = r'(\d{4})'
     match_year = re.search(pattern_year, content)
@@ -453,7 +456,7 @@ def _extract_fiscal_year(content: str) -> Optional[str]:
         year_int = int(year_str)
         if 1990 <= year_int <= 2100:
             return year_str
-    
+
     logger.warning("会計年度の抽出に失敗しました: '%s'", content)
     return None
 
@@ -466,7 +469,7 @@ def _extract_quarter_type(content: str) -> Optional[str]:
     """
     pattern_quarter = r'第\s*([0-4０-４一二三四１２３４]+)\s*四半期'
     match_quarter = re.search(pattern_quarter, content)
-    
+
     if match_quarter is None:
         logger.warning("四半期の抽出に失敗しました: '%s'", content)
         return None
@@ -477,7 +480,7 @@ def _extract_quarter_type(content: str) -> Optional[str]:
     if quarter_num is not None and 1 <= quarter_num <= 4:
         return f"Q{quarter_num}"
     else:
-        logger.warning("四半期の変換に失敗しました: '%s' (content: '%s')", 
+        logger.warning("四半期の変換に失敗しました: '%s' (content: '%s')",
                       quarter_text, content)
         return None
 
@@ -500,7 +503,7 @@ def _convert_quarter_to_number(quarter_text: str) -> Optional[int]:
 
     if quarter_text in to_number_mapping:
         return to_number_mapping[quarter_text]
-    
+
     # 直接数値変換を試行
     try:
         num = int(quarter_text)
@@ -540,6 +543,10 @@ def map_data_to_models(df) -> dict:
 
     df = standardize_raw_data(df)
     df = _company_mapping(df)
+    df = _financial_report_mapping(df, df['company_id'])
+    item_id_map = _financial_item_mapping(df)
+    #TODO DBの’Financial_item’にアクセスし、既に登録済みの内容と作成したマップの重複確認
+    df = _financial_data_mapping(df, df['report_id'], item_id_map)
     """
     model_data_map = {
         ["Company"]: _company_mapping(df),
@@ -550,7 +557,7 @@ def map_data_to_models(df) -> dict:
     """
     return df
 
-def save_financial_data_to_db(df: pd.DataFrame) -> bool:
+def save_financial_bundle(df: pd.DataFrame) -> bool:
     """
     財務データDataFrameを前処理し、各モデルに対応するデータをDBに保存する関数。
 
