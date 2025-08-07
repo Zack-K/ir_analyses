@@ -1,4 +1,4 @@
-# `api.py` リファクタリングガイド
+# `api.py` リファクタリングガイド (v2.0)
 
 ## 1. はじめに - CSVデータの構造分析結果
 
@@ -57,113 +57,128 @@ CSVを `pandas.read_csv(..., sep='\t')` で読み込んだDataFrameを `source_d
 ### 【対処済み】 `_get_value(source_df: pd.DataFrame, element_id: str, context_id: str = None) -> Any`
 
 *   **役割**: `source_df`から特定の`element_id`と、オプションで`context_id`を持つ行を探し、その`値`カラムの値を返すヘルパー関数。
-*   **修正方針**:
-    1.  `element_id`でDataFrameをフィルタリングします。
-    2.  `context_id`が指定されている場合は、それでさらにフィルタリングします。これにより、同じ`element_id`でもコンテキストが異なるデータを正確に取得できます。
-    3.  `iloc[0]`で最初の値を取得します。**値が存在しない場合はエラーをログに記録し、呼び出し元には`None`を返す安全な設計としました。**
+*   **修正方針**: `element_id`とオプショナルな`context_id`でDataFrameをフィルタリングし、安全に値を取得するロジックが実装済みです。
 
 ### 【対処済み】 `_company_mapping(source_df: pd.DataFrame) -> dict`
 
 *   **役割**: `source_df`から会社情報を抽出し、`Company`モデルに対応する辞書を作成する。
-*   **修正方針**:
-    1.  `config.toml`の`[xbrl_mapping.company]`セクションからマッピング情報を読み込みます。**設定が見つからない場合は`KeyError`を送出します。**
-    2.  定義された各`要素ID`について`_get_value`を呼び出し、`source_df`から値を取得して`Company`モデル用の辞書を構築します。
-    3.  **データの取得後、`Company`モデルの必須項目（`edinet_code`, `company_name`）が`None`でないことを検証します。欠損している場合は`ValueError`を送出します。**
-    4.  DBへの永続化は`db_controller`に任せるため、この関数は検証済みの辞書を返すことに専念します。
+*   **修正方針**: `config.toml`の定義に基づき、`_get_value`を呼び出して会社情報辞書を構築し、必須項目を検証するロジックが実装済みです。
 
-### `_financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict`
+### 【対処済み】 `_financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict`
 
 *   **役割**: `source_df`から報告書情報を抽出し、`Financial_report`モデル用の辞書を作成する。
-*   **修正方針**:
-    1.  `company_id`を引数で受け取り、生成する辞書に含めます。
-    2.  `config.toml`の`[xbrl_mapping.financial_report]`セクションからマッピング情報を読み込み、`_get_value`で値を取得します。
-    3.  **会計年度と四半期のパース処理を実装します。**
-        *   `config.toml`の`fiscal_year_and_quarter`で指定された要素ID (`jpcrp_cor:QuarterlyAccountingPeriodCoverPage`) の値（例: `第85期第３四半期...`）を取得します。
-        *   正規表現 `r"第(\d+)期第([１２３４])四半期"` などを用いて、`fiscal_year` (`85`) と `quarter_type` (`3` -> `Q3`) を抽出します。
+*   **修正方針**: `config.toml`の定義と`company_id`を基に報告書情報辞書を構築し、正規表現ヘルパーを用いて会計年度と四半期をパースするロジックが実装済みです。
 
-### `_financial_item_mapping(source_df: pd.DataFrame) -> list[dict]`
+### `_financial_item_mapping` と関連処理
 
-*   **役割**: `source_df`に存在するすべてのユニークな財務項目を抽出し、`Financial_item`モデル用の辞書のリストを作成する。
-*   **修正方針**:
-    1.  `source_df`から財務項目に該当する行をフィルタリングします（例: `要素ID`が`jppfs_cor:`で始まる行など）。
-    2.  `要素ID`をキーにして行を重複排除し、ユニークな財務項目のリストを作成します。
-    3.  各項目について、`element_id` (`要素ID`カラム)、`item_name` (`項目名`カラム)、`unit_type` (`ユニットID`カラム) をマッピングした辞書を作成し、リストとして返します。
-    4.  `category`は、`config.toml`の補足説明にある通り、`コンテキストID`に含まれるキーワード（`Consolidated`, `NonConsolidated`など）や`要素ID`のプレフィックスから判定するロジックを実装します。
+`financial_items`はマスターテーブルであり、`element_id`にユニーク制約があるため、単純にCSVの項目を毎回登録することはできません。そのため、**「DBとの差分をチェックし、存在しない項目のみを登録する」**というロジックが不可欠です。
+
+この処理は、`_financial_item_mapping`関数と、それを呼び出す上位の処理フロー（例: `save_financial_data_to_db`）とで、以下のように役割を分担します。
+
+#### `_financial_item_mapping(source_df: pd.DataFrame) -> list[dict]` の修正方針
+
+この関数の責務は、**DBを意識せず、DataFrameからの情報抽出と整形に専念します。**
+
+1.  **役割**: `source_df`に存在するすべてのユニークな財務項目を抽出し、`Financial_item`モデルのスキーマに準拠した辞書の**候補リスト**を作成する。
+2.  **実装**: 
+    1.  `source_df`から財務項目に該当する行をフィルタリングします（例: `element_id`が`jppfs_cor:`で始まる行など）。
+    2.  `element_id`をキーにして行を重複排除し（`df.drop_duplicates(subset=['element_id'])`）、ユニークな財務項目のリストを作成します。
+    3.  各項目について、`element_id`、`item_name_jp` (-> `item_name`)、`unit_id` (-> `unit_type`) をマッピングした辞書を作成します。
+    4.  `category`は、`context_id`に含まれるキーワード（`Consolidated`, `NonConsolidated`など）や`element_id`のプレフィックスから判定するロジックを実装します。
+    5.  作成した辞書のリストを返します。
+
 
 ### `_financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict) -> list[dict]`
 
 *   **役割**: `source_df`の各行を`Financial_data`モデル用の辞書のリストに変換する。
 *   **修正方針**:
     1.  `report_id`と、`element_id`をキーにDBの`item_id`を値に持つ辞書 (`item_id_map`) を引数で受け取ります。
-    2.  財務データに該当する行をループ処理します。
+    2.  財務データに該当する行（例: `element_id`が`jppfs_cor:`で始まる行）のみを対象にループ処理します。
     3.  各行について、以下の情報を抽出・判定して`Financial_data`モデル用の辞書を構築します。
         *   `report_id`: 引数の値をそのまま利用。
-        *   `item_id`: `item_id_map`を使い、行の`要素ID`から対応するDBの`item_id`を引きます。
-        *   `context_id`: `コンテキストID`カラムの値をそのまま利用。
-        *   `period_type`, `consolidated_type`, `duration_type`: `連結・個別`カラムや`期間・時点`カラムの値を、`db_models`で定義されたenum的な文字列（例: `Consolidated`, `NonConsolidated`, `Instant`, `Duration`）に変換してマッピングします。
-        *   `value`, `value_text`, `is_numeric`: `値`カラムの内容を検証します。数値に変換可能であれば`value`に格納し`is_numeric`を`True`に、`－`などのテキストであれば`value_text`に格納し`is_numeric`を`False`にします。
+        *   `item_id`: `item_id_map`を使い、行の`element_id`から対応するDBの`item_id`を引きます。`map`に存在しない`element_id`はエラーとして記録するか、スキップします。
+        *   `context_id`, `period_type`, `consolidated_type`: DataFrameの各カラムから値をそのまま、あるいは`db_models`のenum型に合わせて変換してマッピングします。
+        *   `value`, `value_text`, `is_numeric`: `standardize_raw_data`で処理済みの各カラムから値をマッピングします。
 
 ---
 
-## 4. 推奨される次のステップ
+## 4. メイン処理フローとDB永続化の実装方針
 
-1.  **`db_controller`の拡張**: `save_financial_bundle`のような、一連の財務データをトランザクション内で一括登録する関数を`db_controller.py`に実装してください。
-2.  **マッピング関数の実装**: 本ドキュメントの方針に沿って、`api.py`内の**残りの**マッピング関数（`_financial_report_mapping`など）を実装してください。
-3.  **メイン処理フローの構築**: 上記関数群を呼び出し、最終的に`db_controller`の関数にデータを渡す、一連の処理フローを完成させてください。
+現在の`save_financial_data_to_db`は未実装であり、これをリファクタリングの最終目標として完成させます。以下に、`api.py`と`db_controller.py`に実装すべき処理フローと関数を示します。
 
+### 4.1. `api.py`のメイン処理フロー (`save_financial_bundle`)
 
-### `_get_value(source_df: pd.DataFrame, element_id: str, context_id: str = None) -> Any`
+`save_financial_data_to_db`を`save_financial_bundle`に改名し、以下のロジックを実装します。
 
-*   **役割**: `source_df`から特定の`element_id`と、オプションで`context_id`を持つ行を探し、その`値`カラムの値を返すヘルパー関数。
-*   **修正方針**:
-    1.  `element_id`でDataFrameをフィルタリングします。
-    2.  `context_id`が指定されている場合は、それでさらにフィルタリングします。これにより、同じ`element_id`でもコンテキストが異なるデータを正確に取得できます。
-    3.  `iloc[0]`で最初の値を取得します。値が存在しない場合は`None`を返すか、`KeyError`を送出するなどの例外処理を明確に定義してください。
+```python
+# in api.py
+def save_financial_bundle(df: pd.DataFrame) -> bool:
+    # 1. データ標準化
+    processed_df = standardize_raw_data(df)
 
-### `_company_mapping(source_df: pd.DataFrame) -> dict`
+    # 2. 会社情報の取得とDB永続化
+    company_data = _company_mapping(processed_df)
+    company_id = db.get_or_create_company(company_data)
+    if not company_id:
+        logger.error("会社の取得または作成に失敗しました。")
+        return False
 
-*   **役割**: `source_df`から会社情報を抽出し、`Company`モデルに対応する辞書を作成する。
-*   **修正方針**:
-    1.  `config.toml`の`[xbrl_mapping.company]`セクションからマッピング情報を読み込みます。
-    2.  定義された各`要素ID`について`_get_value`を呼び出し、`source_df`から値を取得して`Company`モデル用の辞書を構築します。
-    3.  DBへの永続化は`db_controller`に任せるため、この関数は辞書を返すことに専念します。
+    # 3. 財務項目マスターの取得と差分登録
+    # 3-1. CSVから候補リストを作成
+    item_candidates = _financial_item_mapping(processed_df)
+    candidate_element_ids = [item['element_id'] for item in item_candidates]
 
-### `_financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict`
+    # 3-2. DBから既存項目を取得
+    existing_items_map = db.get_items_by_element_ids(candidate_element_ids)
+    existing_element_ids = set(existing_items_map.keys())
 
-*   **役割**: `source_df`から報告書情報を抽出し、`Financial_report`モデル用の辞書を作成する。
-*   **修正方針**:
-    1.  `company_id`を引数で受け取り、生成する辞書に含めます。
-    2.  `config.toml`の`[xbrl_mapping.financial_report]`セクションからマッピング情報を読み込み、`_get_value`で値を取得します。
-    3.  **会計年度と四半期のパース処理を実装します。**
-        *   `config.toml`の`fiscal_year_and_quarter`で指定された要素ID (`jpcrp_cor:QuarterlyAccountingPeriodCoverPage`) の値（例: `第85期第３四半期...`）を取得します。
-        *   正規表現 `r"第(\d+)期第([１２３４])四半期"` などを用いて、`fiscal_year` (`85`) と `quarter_type` (`3` -> `Q3`) を抽出します。
+    # 3-3. 新規項目のみを抽出してDBに登録
+    new_items_to_insert = [item for item in item_candidates if item['element_id'] not in existing_element_ids]
+    if new_items_to_insert:
+        db.bulk_insert_items(new_items_to_insert)
 
-### `_financial_item_mapping(source_df: pd.DataFrame) -> list[dict]`
+    # 3-4. 完全なIDマップを作成
+    # 再度DBから全項目を取得して、最新のIDで完全なマップを作成
+    final_item_id_map = db.get_items_by_element_ids(candidate_element_ids)
 
-*   **役割**: `source_df`に存在するすべてのユニークな財務項目を抽出し、`Financial_item`モデル用の辞書のリストを作成する。
-*   **修正方針**:
-    1.  `source_df`から財務項目に該当する行をフィルタリングします（例: `要素ID`が`jppfs_cor:`で始まる行など）。
-    2.  `要素ID`をキーにして行を重複排除し、ユニークな財務項目のリストを作成します。
-    3.  各項目について、`element_id` (`要素ID`カラム)、`item_name` (`項目名`カラム)、`unit_type` (`ユニットID`カラム) をマッピングした辞書を作成し、リストとして返します。
-    4.  `category`は、`config.toml`の補足説明にある通り、`コンテキストID`に含まれるキーワード（`Consolidated`, `NonConsolidated`など）や`要素ID`のプレフィックスから判定するロジックを実装します。
+    # 4. 財務報告書と財務データのマッピング
+    report_data = _financial_report_mapping(processed_df, company_id)
+    # report_dataからfiscal_year_and_quarterを削除
+    report_data.pop('fiscal_year_and_quarter', None)
 
-### `_financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict) -> list[dict]`
+    # _financial_data_mappingを呼び出す前に、reportをDBに保存してreport_idを取得する必要がある
+    # これはsave_financial_bundleの責務
 
-*   **役割**: `source_df`の各行を`Financial_data`モデル用の辞書のリストに変換する。
-*   **修正方針**:
-    1.  `report_id`と、`element_id`をキーにDBの`item_id`を値に持つ辞書 (`item_id_map`) を引数で受け取ります。
-    2.  財務データに該当する行をループ処理します。
-    3.  各行について、以下の情報を抽出・判定して`Financial_data`モデル用の辞書を構築します。
-        *   `report_id`: 引数の値をそのまま利用。
-        *   `item_id`: `item_id_map`を使い、行の`要素ID`から対応するDBの`item_id`を引きます。
-        *   `context_id`: `コンテキストID`カラムの値をそのまま利用。
-        *   `period_type`, `consolidated_type`, `duration_type`: `連結・個別`カラムや`期間・時点`カラムの値を、`db_models`で定義されたenum的な文字列（例: `Consolidated`, `NonConsolidated`, `Instant`, `Duration`）に変換してマッピングします。
-        *   `value`, `value_text`, `is_numeric`: `値`カラムの内容を検証します。数値に変換可能であれば`value`に格納し`is_numeric`を`True`に、`－`などのテキストであれば`value_text`に格納し`is_numeric`を`False`にします。
+    # 5. トランザクション内で一括保存
+    # report_dataと、これから作成するfinancial_data_listをdb_controllerに渡す
+    # financial_data_list = _financial_data_mapping(processed_df, report_id, final_item_id_map)
+    # return db.save_report_and_data(report_data, financial_data_list)
+    return True # 未実装のため暫定
+```
 
----
+### 4.2. `db_controller.py`の拡張
 
-## 4. 推奨される次のステップ
+上記の処理フローを実現するため、`db_controller.py`に以下の高レベルな関数を実装する必要があります。
 
-1.  **`db_controller`の拡張**: `save_financial_bundle`のような、一連の財務データをトランザクション内で一括登録する関数を`db_controller.py`に実装してください。
-2.  **マッピング関数の実装**: 本ドキュメントの方針に沿って、`api.py`内の各マッピング関数を実装してください。
-3.  **メイン処理フローの構築**: 上記関数群を呼び出し、最終的に`db_controller`の関数にデータを渡す、一連の処理フローを完成させてください。
+1.  **`get_or_create_company(company_data: dict) -> int`**
+    *   **役割**: `edinet_code`をキーに`companies`テーブルを検索します。
+    *   **存在する場合**: そのレコードの`company_id`を返します。
+    *   **存在しない場合**: `company_data`を使って新しいレコードを挿入し、その新しい`company_id`を返します。
+    *   **利点**: 冪等性（べきとうせい）を保証し、同じ会社が重複して登録されるのを防ぎます。
+
+2.  **`get_items_by_element_ids(element_ids: list[str]) -> dict[str, int]`**
+    *   **役割**: `element_id`のリストを受け取り、`financial_items`テーブルを検索します。
+    *   **処理**: `WHERE element_id IN (...)`句を使い、一度のクエリで効率的に検索します。
+    *   **返り値**: `{element_id: item_id}` の形式の辞書を返します。
+
+3.  **`bulk_insert_items(items: list[dict]) -> bool`**
+    *   **役割**: `Financial_item`モデル用の辞書のリストを受け取り、`bulk_insert_mappings`などを使って効率的に一括挿入します。
+
+4.  **`save_report_and_data(report_data: dict, data_list: list[dict]) -> bool`**
+    *   **役割**: トランザクション内で財務報告書と関連データをアトミックに保存します。
+    *   **処理**:
+        1.  トランザクションを開始します。
+        2.  `report_data`を`financial_reports`テーブルに挿入し、新しい`report_id`を取得します。
+        3.  `data_list`内のすべての辞書に、取得した`report_id`を追加します。
+        4.  `data_list`を`financial_data`テーブルに一括挿入します。
+        5.  トランザクションをコミットします。エラーが発生した場合はロールバックします。
