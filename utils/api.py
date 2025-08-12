@@ -7,6 +7,7 @@ import zipfile
 import glob
 import toml
 import re
+import numpy as np
 from typing import Union, Optional
 
 import chardet
@@ -359,11 +360,30 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     """
 
     # dfから財務項目行をフィルタリング
+    financial_item_df = source_df[source_df['element_id'].str.contains("jppfs_cor:", na=False)]
     # element_idを基に重複を排除
-    # 重複排除した各行をループ処理してまとめる
-    # 'item_name_jp'の項目を抽出
-    item_id_map = []
-    return item_id_map
+    financial_item_df = financial_item_df.drop_duplicates(subset=['element_id'])
+    # categoryの判定 : standardize_raw_dataのconsolidated_typeを流用
+    financial_item_df['category'] = np.where(
+        financial_item_df['consolidated_type'] == "連結",
+        'Consolidated',
+        'Non-consolidated'
+    )
+
+    # マッピングした辞書の準備: DB登録用のカラム名に変更するため
+    required_columns = {
+        'element_id': 'element_id',
+        'item_name_jp': 'item_name',
+        'unit_id': 'unit_typw',
+        'category': 'category' 
+    }
+    #  マッピング予定のDB項目の抽出とDB登録用にカラム名の変更
+    column_to_use = [column for column in required_columns.keys() if column in financial_item_df.columns]
+    return_df = financial_item_df[column_to_use]
+    return_df = return_df.rename(columns=required_columns)
+    
+    #　辞書型のListへ変換して返却
+    return  return_df.to_dict('records')
 
 
 def _financial_report_mapping(source_df: pd.DataFrame,
