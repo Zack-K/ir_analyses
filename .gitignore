@@ -27,6 +27,7 @@ ENV/
 *.swp
 *.swo
 *~
+*.code-workspace
 
 # ログとキャッシュ
 *.log
