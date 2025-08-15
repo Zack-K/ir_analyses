@@ -532,28 +532,37 @@ def _convert_quarter_to_number(quarter_text: str) -> Optional[int]:
         logger.warning("四半期文字列の変換に失敗しました: '%s'", quarter_text)
         return None
 
-def _financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]) -> list[dict]:
+
+def _financial_data_mapping(source_df: pd.DataFrame, report_id: int,
+                            item_id_map: dict[str, int]) -> list[dict]:
     """
-    DataFrameの各行を走査し、Financial_dataモデル用の辞書のリストに変換する。
+    DataFrameの財務データ行を走査し、Financial_dataモデル用の辞書リストに変換する。
 
-    本関数は、`config.toml`の補足説明にある通り、静的なマッピング定義を使用せず、
-    財務データが含まれる行を動的に処理します。
-
-    `item_id`は、引数で受け取る`item_id_map`を用いて、行の`element_id`から
-    DBの主キーに解決されます。また、`値`カラムの内容に応じて`value` (数値) と
-    `value_text` (文字列) に振り分け、`is_numeric`フラグを設定します。
+    この関数は、`standardize_raw_data`で処理済みのDataFrameと、永続化済みの
+    `report_id`および`item_id_map`を基に、最終的な財務データを作成します。
 
     Args:
         source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
-        report_id (int): このデータが紐づく報告書のID (`financial_reports.report_id`)。
-        item_id_map (dict[str, int]): XBRLの要素IDをキー、DBの`item_id`を値とする辞書。
+        report_id (int): この財務データが紐づく報告書のID (financial_reports.report_id)。
+        item_id_map (dict[str, int]): XBRLの要素IDをキー、DBのitem_idを値とする辞書。
+            このマップは、source_df内の全ての財務項目を網羅している必要があります。
 
     Returns:
-        list[dict]: `Financial_data`モデルに対応する財務データ辞書のリスト。
+        list[dict]: `Financial_data`モデルのスキーマに準拠した財務データ辞書のリスト。
+
+    Note:
+        パフォーマンスより可読性を優先し、行のループ処理を採用しています。
+        データ量が極端に多い場合は、将来的にベクトル化などの最適化を検討する可能性があります。
     """
-    mapping_dict = {}
-    # (ここに実装を追加)
-    return mapping_dict
+    # TODO 財務データ行のフィルタリング
+    # TODO 結果をまとめたリストの初期化〜フィルタリングした行をループ処理
+    financial_data_list = []
+    # TODO 各行をマッピング キーと値を紐づけ
+    financial_data_mapping = {}
+    # TODO マッピングした結果を結果リストに追加
+    financial_data_list.append(financial_data_mapping)
+
+    return financial_data_list
 
 
 def map_data_to_models(df) -> dict:

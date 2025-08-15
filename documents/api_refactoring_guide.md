@@ -88,17 +88,19 @@ CSVを `pandas.read_csv(..., sep='\t')` で読み込んだDataFrameを `source_d
     5.  作成した辞書のリストを返します。
 
 
-### `_financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict) -> list[dict]`
+### `_financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]) -> list[dict]`
 
 *   **役割**: `source_df`の各行を`Financial_data`モデル用の辞書のリストに変換する。
 *   **修正方針**:
-    1.  `report_id`と、`element_id`をキーにDBの`item_id`を値に持つ辞書 (`item_id_map`) を引数で受け取ります。
-    2.  財務データに該当する行（例: `element_id`が`jppfs_cor:`で始まる行）のみを対象にループ処理します。
-    3.  各行について、以下の情報を抽出・判定して`Financial_data`モデル用の辞書を構築します。
-        *   `report_id`: 引数の値をそのまま利用。
-        *   `item_id`: `item_id_map`を使い、行の`element_id`から対応するDBの`item_id`を引きます。`map`に存在しない`element_id`はエラーとして記録するか、スキップします。
-        *   `context_id`, `period_type`, `consolidated_type`: DataFrameの各カラムから値をそのまま、あるいは`db_models`のenum型に合わせて変換してマッピングします。
+    1.  **引数**: `report_id`と、`element_id`をキーにDBの`item_id`を値に持つ`item_id_map`を引数で受け取ります。
+    2.  **データフィルタリング**: `source_df`から財務データに該当する行（例: `element_id`が`jppfs_cor:`で始まる行）のみを抽出します。
+    3.  **ループ処理**: フィルタリングしたDataFrameの各行をループ処理し、以下のマッピングを行います。
+        *   `report_id`: 引数の値をそのまま利用します。
+        *   `item_id`: `item_id_map`を使い、行の`element_id`から対応するDBの`item_id`を引きます。万が一`map`にキーが存在しない場合は、その行は処理をスキップし、警告ログを出力します。
+        *   `context_id`, `period_type`, `consolidated_type`: DataFrameの各カラムから値をそのままマッピングします。
         *   `value`, `value_text`, `is_numeric`: `standardize_raw_data`で処理済みの各カラムから値をマッピングします。
+    4.  **返り値**: `Financial_data`モデルのスキーマに準拠した辞書のリストを返します。
+*   **パフォーマンスに関する注記**: `test.csv`の分析結果（財務データ行は154行）から、データ量が数千行程度であれば、可読性の高い`for`ループによる実装で十分なパフォーマンスが期待できます。将来的に性能が問題となった場合に、ベクトル化などの最適化を検討します。
 
 ---
 
