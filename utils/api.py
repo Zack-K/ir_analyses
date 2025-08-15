@@ -345,45 +345,57 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     """
     DataFrameからユニークな財務項目を抽出し、DB登録候補の辞書リストを作成する。
 
-    この関数の責務は、渡されたDataFrameから財務項目を抜き出し、`Financial_item`
-    モデルのスキーマに準拠した辞書のリストとして整形することに限定される。
-    データベースへの問い合わせや重複チェックは行わない。
-
-    実際のDB登録処理は、この関数が返した「候補リスト」を基に、上位の処理フロー
-    （例: `save_financial_data_to_db`）が既存データとの差分を考慮して行う。
+    この関数は、DataFrameから財務項目行をフィルタリングし、重複を除外した上で、
+    `Financial_item`モデルのスキーマに準拠した辞書のリストとして整形します。
+    DBへの問い合わせや、入力DataFrameの妥当性検証（カラム存在チェックなど）は
+    行いません。
 
     Args:
-        source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
+        source_df (pd.DataFrame): `standardize_raw_data`で処理済みのDataFrame。
+            `element_id`, `item_name_jp`, `consolidated_type`, `unit_id`カラムが必須。
 
     Returns:
         list[dict]: `Financial_item`モデルに対応する財務項目辞書の候補リスト。
-    """
 
+    Raises:
+        KeyError: `source_df`に必須カラムが欠損している場合に送出されます。
+    """
     # dfから財務項目行をフィルタリング
-    financial_item_df = source_df[source_df['element_id'].str.contains("jppfs_cor:", na=False)]
+    financial_item_df = source_df[source_df['element_id'].str.contains("jppfs_cor:", na=False)].copy()
+
+    # 処理対象の行がなければ空のリストを返す
+    if financial_item_df.empty:
+        return []
+
     # element_idを基に重複を排除
     financial_item_df = financial_item_df.drop_duplicates(subset=['element_id'])
-    # categoryの判定 : standardize_raw_dataのconsolidated_typeを流用
+
+    # categoryの判定
     financial_item_df['category'] = np.where(
         financial_item_df['consolidated_type'] == "連結",
         'Consolidated',
         'Non-consolidated'
     )
 
-    # マッピングした辞書の準備: DB登録用のカラム名に変更するため
-    required_columns = {
+    # DB登録用にカラム名を定義 (元カラム名 -> DBモデルカラム名)
+    column_mapping = {
         'element_id': 'element_id',
         'item_name_jp': 'item_name',
-        'unit_id': 'unit_typw',
+        'unit_id': 'unit_type',
         'category': 'category' 
     }
-    #  マッピング予定のDB項目の抽出とDB登録用にカラム名の変更
-    column_to_use = [column for column in required_columns.keys() if column in financial_item_df.columns]
-    return_df = financial_item_df[column_to_use]
-    return_df = return_df.rename(columns=required_columns)
+
+    # 必須カラムのリスト
+    required_original_columns = list(column_mapping.keys())
+
+    # 必須カラムのみを抽出 (ここでカラムがなければKeyErrorが発生する)
+    return_df = financial_item_df[required_original_columns]
+
+    # カラム名をDBモデルに合わせてリネーム
+    return_df = return_df.rename(columns=column_mapping)
     
-    #　辞書型のListへ変換して返却
-    return  return_df.to_dict('records')
+    # 辞書型のListへ変換して返却
+    return return_df.to_dict('records')
 
 
 def _financial_report_mapping(source_df: pd.DataFrame,
