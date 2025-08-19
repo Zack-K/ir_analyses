@@ -6,6 +6,7 @@ from pathlib import Path
 import toml
 import logging
 
+import pandas as pd
 import streamlit as st
 
 # 環境対応型パス設定（Streamlitベストプラクティス）
@@ -64,7 +65,7 @@ config = load_config()
 # タイトルの取得
 app_title = config.get("app", {}).get("title", "Default Title")
 st.title(app_title)
-
+"""
 # TODO　日付の渡し方は検討　最終的にスケジュール指定してバッチ実行する
 date = "2024-02-09"
 API_ENDPOINT = config.get("edinetapi", {}).get("API_ENDPOINT", "dummy_key")
@@ -73,3 +74,19 @@ API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
 calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe)
 
 st.dataframe(calculate_financial_metrics)
+
+"""
+
+"""
+分析内容
+- 収益性ダッシュボード
+    - 売上高の推移
+    - 営業利益の推移
+    - 経常利益の推移
+    - 純利益の推移
+    - 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
+"""
+
+df = pd.read_csv("C:\Users\NDY09\Documents\ir_analyses\documents\test.csv")
+
+st.dataframe(df)
