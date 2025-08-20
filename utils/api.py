@@ -284,7 +284,6 @@ def _get_value(source_df: pd.DataFrame,
             extract_df = extract_df[extract_df['context_id'] == context_id]
 
         target_row = extract_df.iloc[0]
-        #TODO 数値型でも日付は返還しないようにチェックして文字列として保管
         if target_row['is_numeric']:
             extract_value = target_row['value']
             logger.info("element_idと一致する行から数値データを取得しました")
@@ -383,7 +382,7 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
         'element_id': 'element_id',
         'item_name_jp': 'item_name',
         'unit_id': 'unit_type',
-        'category': 'category'
+        'category': 'category' 
     }
 
     # 必須カラムのリスト
@@ -394,7 +393,7 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
 
     # カラム名をDBモデルに合わせてリネーム
     return_df = return_df.rename(columns=column_mapping)
-
+    
     # 辞書型のListへ変換して返却
     return return_df.to_dict('records')
 
