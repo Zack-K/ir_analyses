@@ -65,8 +65,8 @@ def load_config():
 config = load_config()
 
 # タイトルの取得
-app_title = config.get("app", {}).get("title", "Default Title")
-st.title(app_title)
+#app_title = config.get("app", {}).get("title", "Default Title")
+#st.title(app_title)
 
 # TODO　日付の渡し方は検討　最終的にスケジュール指定してバッチ実行する
 #date = "2024-02-09"
@@ -97,7 +97,8 @@ path_list = {
     "./download/S100SSMQ/XBRL_TO_CSV/jpcrp040300-q3r-001_E04505-000_2023-12-31_01_2024-02-09.csv"
 }
 
-selected_company = st.selectbox("Select item", list(path_list.keys()))
+
+selected_company = st.sidebar.selectbox("Choose Company", list(path_list.keys()))
 
 path = path_list[selected_company]
 
@@ -168,7 +169,7 @@ profit_df = pd.DataFrame({
 
 
 # 画面表示とレイアウトに関する項目
-
+st.set_page_config(layout="wide") 
 st.header(f"{company_data['company_name']}")
 
 option = st.checkbox("DataFrameを表示する")
