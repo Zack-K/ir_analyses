@@ -163,13 +163,36 @@ profit_df = pd.DataFrame({
 })
 
 # 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
-# 営業利益率 = 営業利益 / 売上高
-#oparation_income_rate_current = (ordinary_income_current / sales_current) * 100
-#oparation_income_rate_prior = (ordinary_income_prior/ sales_prior) * 100
+# 営業利益率 = ( 営業利益 / 売上高 ) *100
+oparation_income_rate_current = (float(ordinary_income_current) / float(sales_current)) * 100
+oparation_income_rate_prior = (float(ordinary_income_prior)/ float(sales_prior)) * 100
 
+# 経常利益率 ＝ ( 経常利益 / 売上高 ) * 100
+ordinary_income_rate_current = (float(ordinary_income_current)/ float(sales_current)) * 100
+ordinary_income_rate_prior = (float(ordinary_income_prior) /
+                              float(sales_prior)) * 100
+
+# 売上高純利益率 = ( 純利益 / 売上高 ) * 100
+profit_rate_current = (float(profit_current)/ float(sales_current)) * 100
+profit_rate_prior = (float(profit_prior) / float(sales_prior)) * 100
+
+income_profit_rate_df = pd.DataFrame({
+    'title': [
+        '今期営業利益率', '前期同四半期営業利益率', '今期経常利益率', '前期同四半期経常利益率', '今期売上高利益率',
+        '前期同四半期売上高利益率'
+    ],
+    'rate': [
+        oparation_income_rate_current,
+        oparation_income_rate_prior,
+        ordinary_income_rate_current,
+        ordinary_income_rate_prior,
+        profit_rate_current,
+        profit_rate_prior
+    ]
+})
 
 # 画面表示とレイアウトに関する項目
-st.set_page_config(layout="wide") 
+st.set_page_config(layout="wide")
 st.header(f"{company_data['company_name']}")
 
 option = st.checkbox("DataFrameを表示する")
@@ -204,3 +227,10 @@ with col2:
                  x_label="当期純利益比較",
                  y="amount (yen)",
                  y_label="円")
+
+st.header("各種利益率")
+st.bar_chart(income_profit_rate_df,
+             x='title',
+             x_label="利益得",
+             y='rate',
+             y_label="%")
