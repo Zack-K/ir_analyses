@@ -89,13 +89,17 @@ st.title(app_title)
 
 # セレクトボックス用のリスト
 path_list = {
-    "株式会社_山梨中央銀行":"./download/S100SPH6/XBRL_TO_CSV/jpcrp040300-q3r-001_E03562-000_2023-12-31_01_2024-02-09.csv",
-    "今村証券株式会社":"./download/S100SQAH/XBRL_TO_CSV/jpcrp040300-q3r-001_E30982-000_2023-12-31_01_2024-02-09.csv",
-    "日本酸素ホールディングス株式会社":"./download/S100SRF2/XBRL_TO_CSV/jpcrp040300-q3r-001_E00783-000_2023-12-31_01_2024-02-09.csv",
-    "株式会社トーアミ":"./download/S100SSHR/XBRL_TO_CSV/jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv",
-    "四国電力株式会社":"./download/S100SSMQ/XBRL_TO_CSV/jpcrp040300-q3r-001_E04505-000_2023-12-31_01_2024-02-09.csv"
+    "信越ポリマー株式会社":
+    "./download/S100SSIM/XBRL_TO_CSV/jpcrp040300-q3r-001_E02388-000_2023-12-31_01_2024-02-09.csv",
+    "株式会社トーアミ":
+    "./download/S100SSHR/XBRL_TO_CSV/jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv",
+    "四国電力株式会社":
+    "./download/S100SSMQ/XBRL_TO_CSV/jpcrp040300-q3r-001_E04505-000_2023-12-31_01_2024-02-09.csv"
 }
-path = "./download/S100SSHR/XBRL_TO_CSV/jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv"
+
+selected_company = st.selectbox("Select item", list(path_list.keys()))
+
+path = path_list[selected_company]
 
 with open(path, "rb") as f:
     raw_data = f.read()
@@ -123,20 +127,17 @@ sales = pd.DataFrame({
     'amount (yen)': [sales_current, sales_prior, sales_last_year]
 })
 
-
-
 # 営業利益の推移 jppfs_cor:OperatingIncome
 operation_income = "jppfs_cor:OperatingIncome"
-operation_income_current = api._get_value(standardize_df, operation_income, current_duration)
+operation_income_current = api._get_value(standardize_df, operation_income,
+                                          current_duration)
 operation_income_prior = api._get_value(standardize_df, operation_income,
                                         prior_duration)
-
 
 operation_income_df = pd.DataFrame({
     'title': ['今四半期', '前期同四半期'],
     'amount (yen)': [operation_income_current, operation_income_prior]
 })
-
 
 # 経常利益の推移 jpcrp_cor:OrdinaryIncomeLossSummaryOfBusinessResults
 ordinary_income = "jpcrp_cor:OrdinaryIncomeLossSummaryOfBusinessResults"
@@ -150,8 +151,6 @@ ordinary_income_df = pd.DataFrame({
     'amount (yen)': [ordinary_income_current, ordinary_income_prior]
 })
 
-
-
 # 純利益の推移 jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults
 profit = "jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults"
 profit_current = api._get_value(standardize_df, profit, current_duration)
@@ -162,12 +161,14 @@ profit_df = pd.DataFrame({
     'amount (yen)': [profit_current, profit_prior]
 })
 
-
 # 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
+# 営業利益率 = 営業利益 / 売上高
+#oparation_income_rate_current = (ordinary_income_current / sales_current) * 100
+#oparation_income_rate_prior = (ordinary_income_prior/ sales_prior) * 100
 
 
+# 画面表示とレイアウトに関する項目
 
-# レイアウト
 st.header(f"{company_data['company_name']}")
 
 option = st.checkbox("DataFrameを表示する")
@@ -191,14 +192,14 @@ with col1:
 with col2:
     st.header("経常利益")
     st.bar_chart(ordinary_income_df,
-                x="title",
-                x_label="経常利益比較",
-                y="amount (yen)",
-                y_label="円")
+                 x="title",
+                 x_label="経常利益比較",
+                 y="amount (yen)",
+                 y_label="円")
 
     st.header("純利益")
     st.bar_chart(profit_df,
-                x="title",
-                x_label="当期純利益比較",
-                y="amount (yen)",
-                y_label="円")
+                 x="title",
+                 x_label="当期純利益比較",
+                 y="amount (yen)",
+                 y_label="円")
