@@ -191,6 +191,9 @@ income_profit_rate_df = pd.DataFrame({
     ]
 })
 
+
+
+
 # 画面表示とレイアウトに関する項目
 st.set_page_config(layout="wide")
 st.header(f"{company_data['company_name']}")
@@ -231,6 +234,14 @@ with col2:
 st.header("各種利益率")
 st.bar_chart(income_profit_rate_df,
              x='title',
-             x_label="利益得",
+             x_label="利益率",
              y='rate',
              y_label="%")
+
+
+income_profit_rate_df_line_chat = pd.DataFrame({
+    "営業利益率":[oparation_income_rate_prior, oparation_income_rate_current],
+    "経常利益率":[ordinary_income_rate_prior, ordinary_income_rate_current],
+    "売上高利益率":[profit_rate_prior, profit_rate_current]
+})
+
