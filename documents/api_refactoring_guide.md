@@ -1,162 +1,146 @@
-# `api.py` リファクタリングガイド (v2.0)
+# `api.py` リファクタリングガイド (v3.0 - ORM/Repositoryパターン適用版)
 
-## 1. はじめに - CSVデータの構造分析結果
+## 1. はじめに
 
-EDINETからダウンロードしたXBRLをCSVに変換した実データ (`jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv`) を分析した結果、当初想定されていた**横持ちデータではなく、既に縦持ち形式に近い構造**であることが判明しました。
+このドキュメントは、`utils/api.py`のマッピング機能およびデータ永続化処理を、SQLAlchemyのORM機能を最大限に活用したモダンな設計（Repositoryパターン）へとリファクタリングするための方針を定義します。
 
-これは、データ処理のアーキテクチャを大幅に簡素化できることを意味します。特に、最も複雑と想定された**「横持ちから縦持ちへのデータ変換処理」は不要**です。
-
-この発見に基づき、`api.py`の修正方針を以下のように再定義します。
+**v2.0からの主な変更点:**
+- **ORM中心設計**: データ操作の単位を辞書やDataFrameから **SQLAlchemyモデルオブジェクト** に移行します。
+- **Repositoryパターンの導入**: `db_controller.py`を廃止し、DBとのやり取りを責務とする`Repository`層を新設します。
+- **Serviceレイヤーの導入**: `api.py`と`Repository`層の間に、ビジネスロジックを担う`Service`層を設けます。
 
 ---
 
 ## 2. 修正の基本方針
 
-`api.py`のリファクタリングは、以下の3つの基本方針に沿って進めてください。
+リファクタリングは、以下の4つの基本方針に沿って進めます。
 
-### 2.1. データ処理パイプラインの簡素化
+### 2.1. データ処理パイプラインの再定義
 
-CSVデータが既に縦持ちであるため、処理パイプラインは以下のように簡素化されます。
+新しいアーキテクチャにおける処理パイプラインは以下のようになります。
 
-**`①CSV読み込み → ②データマッピング → ③DB永続化`**
+**`①CSV読み込み → ②モデルオブジェクトへのマッピング → ③Serviceレイヤー経由で永続化`**
 
-`api.py`の責務は、ステップ②の「データマッピング」に集中します。具体的には、pandasで読み込んだDataFrameを、`db_models.py`で定義された各 SQLAlchemyモデル（`Company`, `Financial_report`, `Financial_item`, `Financial_data`）の形式に変換します。
+`api.py`の責務は、ステップ②の「DataFrameからモデルオブジェクトへのマッピング」に集中します。
 
-### 2.2. `config.toml`によるマッピング定義の活用
+### 2.2. ORMオブジェクト中心設計への移行
 
-`config.toml`には、XBRLの要素名とDBモデルのカラムとの対応関係が既に定義されています。この情報を活用し、ハードコーディングを排除します。
+各マッピング関数 (`_..._mapping`) は、辞書を返すのではなく、**初期化されたSQLAlchemyモデルオブジェクト**を返却するように変更します。これにより、型安全性が向上し、コードが直感的になります。
 
-**`config.toml` の定義箇所:**
-```toml
-[xbrl_mapping.company]
-edinet_code = "jpdei_cor:EDINETCodeDEI"
-security_code = "jpdei_cor:SecurityCodeDEI"
-industry_code ="jpdei_cor:IndustryCodeWhenConsolidatedFinancialStatementsArePreparedInAccordanceWithIndustrySpecificRegulationsDEI"
-company_name = "jpcrp_cor:CompanyNameCoverPage"
+### 2.3. `config.toml`によるマッピング定義の活用 (変更なし)
 
-[xbrl_mapping.financial_report]
-document_type = "jpcrp_cor:DocumentTitleCoverPage"
-fiscal_year_and_quarter = "jpcrp_cor:QuarterlyAccountingPeriodCoverPage"
-fiscal_year_end = "jpdei_cor:CurrentPeriodEndDateDEI"
-filing_date = "jpcrp_cor:FilingDateCoverPage"
-```
-`financial_items`と`financial_data`については、`config.toml`の補足説明にある通り、動的にデータを生成するため、静的なマッピングは不要です。
+引き続き`config.toml`の`[xbrl_mapping]`セクションを活用し、ハードコーディングを排除します。
 
-### 2.3. DB操作の集約とトランザクション管理
+### 2.4. ServiceとRepositoryによる責務分離とトランザクション管理
 
-`Company`から`Financial_data`までの一連のデータ登録処理は、必ず単一のトランザクション内で実行する必要があります。これにより、データの一部だけが登録されるといった不整合を防ぎます。
+- **Repository層**: 各モデルに対するCRUD操作（DBとの直接対話）に特化します。
+- **Service層**: 複数のRepositoryを呼び出し、Upsertロジックや差分更新など、一連のビジネスロジックを組み立てます。**トランザクション管理はService層が責任を持ちます。**
+- **`api.py`**: Service層のメソッドを呼び出すだけの、薄いコントローラー層となります。
 
-`db_controller.py`に、関連するすべてのデータ（モデルごとの辞書のリストなど）を一度に受け取り、アトミックにDBへ保存する高レベルな関数（例: `save_financial_bundle`）を実装してください。`api.py`は、マッピング処理の完了後、この関数を一度だけ呼び出すようにします。
+### 2.5. 現状の実装状況と課題 (As-Is Analysis)
 
----
+リファクタリングに着手する前の、各関連ファイルの実装状況と課題を以下にまとめます。
 
-## 3. 各マッピング関数の詳細な修正方針
+#### `utils/db_models.py`
+- **できていること (Done):**
+    - 4つの主要モデル(`Company`, `Financial_report`, `Financial_item`, `Financial_data`)の基本的なスキーマ（カラム、型、制約）が定義済み。
+- **課題・未実装なこと (To-Do):**
+    - **リレーションシップ未定義:** モデル間の関連を表現する `relationship` が定義されておらず、ORMの利点を活かせない。
+    - **インデックス未設定:** 検索キーとなるカラム (`edinet_code`等) にインデックスが設定されておらず、パフォーマンス上の懸念がある。
 
-CSVを `pandas.read_csv(..., sep='\t')` で読み込んだDataFrameを `source_df` と仮定し、各マッピング関数の具体的な修正方針を以下に示します。
+#### `utils/db_controller.py`
+- **できていること (Done):**
+    - `insert`, `read`, `update`, `delete` といった手続き的なCRUD関数が実装済み。
+- **課題・未実装なこと (To-Do):**
+    - **Repositoryパターン未導入:** 設計が古く、本ガイドの方針であるRepositoryパターンに移行する必要がある。
+    - **不適切なI/O:** `read`がDataFrameを返すなど、ORMオブジェクト中心の設計思想と乖離している。
+    - **不十分なトランザクション管理:** 関数ごとにセッションが生成・破棄され、複数の操作をまとめるトランザクション管理ができない。
 
-### 【対処済み】 `_get_value(source_df: pd.DataFrame, element_id: str, context_id: str = None) -> Any`
-
-*   **役割**: `source_df`から特定の`element_id`と、オプションで`context_id`を持つ行を探し、その`値`カラムの値を返すヘルパー関数。
-*   **修正方針**: `element_id`とオプショナルな`context_id`でDataFrameをフィルタリングし、安全に値を取得するロジックが実装済みです。
-
-### 【対処済み】 `_company_mapping(source_df: pd.DataFrame) -> dict`
-
-*   **役割**: `source_df`から会社情報を抽出し、`Company`モデルに対応する辞書を作成する。
-*   **修正方針**: `config.toml`の定義に基づき、`_get_value`を呼び出して会社情報辞書を構築し、必須項目を検証するロジックが実装済みです。
-
-### 【対処済み】 `_financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict`
-
-*   **役割**: `source_df`から報告書情報を抽出し、`Financial_report`モデル用の辞書を作成する。
-*   **修正方針**: `config.toml`の定義と`company_id`を基に報告書情報辞書を構築し、正規表現ヘルパーを用いて会計年度と四半期をパースするロジックが実装済みです。
-
-### `_financial_item_mapping` と関連処理
-
-`financial_items`はマスターテーブルであり、`element_id`にユニーク制約があるため、単純にCSVの項目を毎回登録することはできません。そのため、**「DBとの差分をチェックし、存在しない項目のみを登録する」**というロジックが不可欠です。
-
-この処理は、`_financial_item_mapping`関数と、それを呼び出す上位の処理フロー（例: `save_financial_bundle`）とで、以下のように役割を分担します。
-
-#### `_financial_item_mapping(source_df: pd.DataFrame) -> list[dict]` の修正方針
-
-この関数の責務は、**DBを意識せず、DataFrameからの情報抽出と整形に専念します。**
-
-1.  **役割**: `source_df`に存在するすべてのユニークな財務項目を抽出し、`Financial_item`モデルのスキーマに準拠した辞書の**候補リスト**を作成する。
-2.  **実装**: 
-    1.  `source_df`から財務項目に該当する行をフィルタリングします（例: `element_id`が`jppfs_cor:`で始まる行など）。
-    2.  `element_id`をキーにして行を重複排除し（`df.drop_duplicates(subset=['element_id'])`）、ユニークな財務項目のリストを作成します。
-    3.  各項目について、`element_id`、`item_name_jp` (-> `item_name`)、`unit_id` (-> `unit_type`) をマッピングした辞書を作成します。
-    4.  `category`は、`context_id`に含まれるキーワード（`Consolidated`, `NonConsolidated`など）や`element_id`のプレフィックスから判定するロジックを実装します。
-    5.  作成した辞書のリストを返します。
-
-
-### `_financial_data_mapping(source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]) -> list[dict]`
-
-*   **役割**: `source_df`の各行を`Financial_data`モデル用の辞書のリストに変換する。
-*   **修正方針**:
-    1.  **引数**: `report_id`と、`element_id`をキーにDBの`item_id`を値に持つ`item_id_map`を引数で受け取ります。
-    2.  **データフィルタリング**: `source_df`から財務データに該当する行（例: `element_id`が`jppfs_cor:`で始まる行）のみを抽出します。
-    3.  **ループ処理**: フィルタリングしたDataFrameの各行をループ処理し、以下のマッピングを行います。
-        *   `report_id`: 引数の値をそのまま利用します。
-        *   `item_id`: `item_id_map`を使い、行の`element_id`から対応するDBの`item_id`を引きます。万が一`map`にキーが存在しない場合は、その行は処理をスキップし、警告ログを出力します。
-        *   `context_id`, `period_type`, `consolidated_type`: DataFrameの各カラムから値をそのままマッピングします。
-        *   `value`, `value_text`, `is_numeric`: `standardize_raw_data`で処理済みの各カラムから値をマッピングします。
-    4.  **返り値**: `Financial_data`モデルのスキーマに準拠した辞書のリストを返します。
-*   **パフォーマンスに関する注記**: `test.csv`の分析結果（財務データ行は154行）から、データ量が数千行程度であれば、可読性の高い`for`ループによる実装で十分なパフォーマンスが期待できます。将来的に性能が問題となった場合に、ベクトル化などの最適化を検討します。
+#### `utils/api.py`
+- **できていること (Done):**
+    - EDINET APIからのデータ取得、ZIP展開、CSV読み込み、基本的な前処理 (`standardize_raw_data`) は実装済み。
+    - `_company_mapping`, `_financial_report_mapping`, `_financial_item_mapping` は、**辞書を返す形**で実装済み。
+- **課題・未実装なこと (To-Do):**
+    - **コアロジックの欠損:** `_financial_data_mapping` が未実装であり、全体の処理が完結しない。
+    - **古い設計への依存:** `save_financial_bundle` は `db_controller.py` を直接呼び出す古い設計のままであり、機能しない。
+    - **設計思想の不一致:** マッピング関数がモデルオブジェクトではなく辞書を返しており、ORM中心設計への移行が必要。
+    - **Serviceレイヤーの不在:** ビジネスロジックを担うService層が存在しない。
 
 ---
 
-## 4. メイン処理フローとDB永続化の実装方針
+## 3. 各マッピング関数のリファクタリング方針
 
-現在の`save_financial_data_to_db`は未実装であり、これをリファクタリングの最終目標として完成させます。以下に、`api.py`と`db_controller.py`に実装すべき処理フローと関数を示します。
+`source_df`（標準化済みDataFrame）を引数にとる各マッピング関数の修正方針です。
 
-### 4.1. `api.py`のメイン処理フロー (`save_financial_bundle`)
+### `_company_mapping(source_df: pd.DataFrame) -> Company`
 
-`save_financial_data_to_db`を`save_financial_bundle`に改名し、一連のデータマッピングと永続化処理を統括する最上位の関数として、以下の仕様で実装します。
+- **役割**: `source_df`から会社情報を抽出し、`Company`モデルオブジェクトを作成して返す。
+- **修正方針**:
+    1. `config.toml`に基づき`_get_value`で各情報を取得します。
+    2. `return Company(**company_data)` のように、取得したデータで`Company`オブジェクトを初期化して返します。
 
-1.  **データ標準化**: まず、入力されたDataFrameに対し`standardize_raw_data`を呼び出し、カラム名の統一やデータ型の変換などの前処理を行います。
+### `_financial_report_mapping(source_df: pd.DataFrame) -> Financial_report`
 
-2.  **会社情報の特定と永続化**: 
-    1.  `_company_mapping`を呼び出して、DataFrameから会社情報を抽出します。
-    2.  `db_controller.get_or_create_company`に会社情報を渡し、DBに会社が存在するか確認します。なければ新規登録し、いずれの場合も対応する`company_id`を取得します。処理に失敗した場合は、エラーを記録して中断します。
+- **役割**: `source_df`から報告書情報を抽出し、`Financial_report`モデルオブジェクトを作成して返す。
+- **修正方針**:
+    1. `config.toml`に基づき情報を取得し、会計年度・四半期をパースします。
+    2. `company_id`は引数で受け取るのではなく、後続のService層で設定するため、この段階では`None`で構いません。
+    3. `return Financial_report(**report_data)` のように、`Financial_report`オブジェクトを初期化して返します。
+
+### `_financial_item_mapping(source_df: pd.DataFrame) -> list[Financial_item]`
+
+- **役割**: `source_df`からユニークな財務項目をすべて抽出し、`Financial_item`モデルオブジェクトのリストを作成して返す。
+- **修正方針**:
+    1. `element_id`で重複排除したDataFrameを作成します。
+    2. 各行をループし、`Financial_item`オブジェクトを初期化してリストに追加します。
+    3. **DBとの差分確認は行いません。** この関数の責務は、あくまでDataFrameからの情報抽出に限定します。
+
+### `_financial_data_mapping(source_df: pd.DataFrame) -> list[Financial_data]`
+
+- **役割**: `source_df`の財務データ行を`Financial_data`モデルオブジェクトのリストに変換する。
+- **修正方針**:
+    1. 財務データに該当する行をフィルタリングします。
+    2. 各行をループし、`Financial_data`オブジェクトを初期化してリストに追加します。
+    3. `report_id`と`item_id`はこの段階では設定せず、後続のService層で設定します。
+
+---
+
+## 4. Service/Repository層による永続化フロー
+
+`save_financial_bundle`は`FinancialService`のようなクラスのメソッドとして再設計されます。
+
+### 4.1. `FinancialService.save_bundle(df: pd.DataFrame)` の処理フロー
+
+このメソッドは、セッションとトランザクションの管理下で、以下の処理を統括します。
+
+1.  **データ標準化・マッピング**:
+    - `standardize_raw_data`を呼び出します。
+    - `_..._mapping`関数群を呼び出し、DataFrameから各モデルオブジェクト（`company_obj`, `report_obj`, `item_obj_list`, `data_obj_list`）を生成します。
+
+2.  **会社情報のUpsert**:
+    - `CompanyRepository.get_or_create(company_obj)` を呼び出し、DBに会社情報を永続化し、管理された`Company`オブジェクト（IDが設定済み）を取得します。
 
 3.  **財務項目マスターの差分更新**:
-    1.  `_financial_item_mapping`を呼び出し、DataFrameから財務項目の「候補リスト」を作成します。
-    2.  候補リストから`element_id`の一覧を抽出し、`db_controller.get_items_by_element_ids`に渡して、DBに既に存在する項目のIDマップ（`{element_id: item_id}`）を取得します。
-    3.  候補リストと既存項目のIDマップを比較し、DBにまだ存在しない**新規項目のみ**を抽出します。
-    4.  新規項目があれば、`db_controller.bulk_insert_items`に渡して`financial_items`テーブルに一括登録します。
-    5.  再度`db_controller.get_items_by_element_ids`を呼び出し、新規登録分も含めた**完全なIDマップ**を取得します。これは後続の`_financial_data_mapping`で使用します。
+    - `FinancialItemRepository.find_by_element_ids([...])` を呼び出し、`item_obj_list`のうちDBに既に存在する項目を取得します。
+    - 存在しない新規項目のみを `FinancialItemRepository.bulk_save(new_items)` で一括登録します。
+    - `FinancialItemRepository.find_by_element_ids([...])` を再度呼び出し、**全項目の`element_id`と`item_id`の対応マップ**を作成します。
 
-4.  **財務報告書と財務データのマッピング**:
-    1.  `_financial_report_mapping`を呼び出し、財務報告書のデータを作成します。この際、`company_id`を渡します。
-    2.  `_financial_data_mapping`を呼び出す準備として、上記で作成した完全なIDマップを渡せるようにします。
+4.  **報告書と財務データの永続化**:
+    - 取得した`company.company_id`を`report_obj.company_id`に設定します。
+    - `FinancialReportRepository.save(report_obj)` を呼び出し、報告書を永続化して`report_id`を取得します。
+    - `data_obj_list`をループし、各`data_obj`に`report_id`と、対応マップから引いた`item_id`を設定します。
+    - `FinancialDataRepository.bulk_save(data_obj_list)` を呼び出し、財務データを一括登録します。
 
-5.  **データの一括保存**:
-    1.  `db_controller`に新しく作成する`save_report_and_data`関数を呼び出します。
-    2.  この関数には、作成した**財務報告書データ**と**財務データリスト**を渡します。`db_controller`側は、これらを単一のトランザクション内でアトミックに保存する責務を持ちます。（詳細は4.2節を参照）
+### 4.2. 各Repositoryに必要なメソッド例
 
+- **`CompanyRepository`**:
+    - `get_or_create(company: Company) -> Company`: `edinet_code`で存在確認し、なければ追加して`Company`オブジェクトを返す。
+- **`FinancialItemRepository`**:
+    - `find_by_element_ids(element_ids: list[str]) -> list[Financial_item]`: 複数の`element_id`で項目を検索する。
+    - `bulk_save(items: list[Financial_item])`: 複数の項目を一括で保存する。
+- **`FinancialReportRepository`**:
+    - `save(report: Financial_report) -> Financial_report`: 報告書を保存する。
+- **`FinancialDataRepository`**:
+    - `bulk_save(data_list: list[Financial_data])`: 複数の財務データを一括で保存する。
 
-### 4.2. `db_controller.py`の拡張
-
-上記の処理フローを実現するため、`db_controller.py`に以下の高レベルな関数を実装する必要があります。
-
-1.  **`get_or_create_company(company_data: dict) -> int`**
-    *   **役割**: `edinet_code`をキーに`companies`テーブルを検索します。
-    *   **存在する場合**: そのレコードの`company_id`を返します。
-    *   **存在しない場合**: `company_data`を使って新しいレコードを挿入し、その新しい`company_id`を返します。
-    *   **利点**: 冪等性（べきとうせい）を保証し、同じ会社が重複して登録されるのを防ぎます。
-
-2.  **`get_items_by_element_ids(element_ids: list[str]) -> dict[str, int]`**
-    *   **役割**: `element_id`のリストを受け取り、`financial_items`テーブルを検索します。
-    *   **処理**: `WHERE element_id IN (...)`句を使い、一度のクエリで効率的に検索します。
-    *   **返り値**: `{element_id: item_id}` の形式の辞書を返します。
-
-3.  **`bulk_insert_items(items: list[dict]) -> bool`**
-    *   **役割**: `Financial_item`モデル用の辞書のリストを受け取り、`bulk_insert_mappings`などを使って効率的に一括挿入します。
-
-4.  **`save_report_and_data(report_data: dict, data_list: list[dict]) -> bool`**
-    *   **役割**: トランザクション内で財務報告書と関連データをアトミックに保存します。
-    *   **処理**:
-        1.  トランザクションを開始します。
-        2.  `report_data`を`financial_reports`テーブルに挿入し、新しい`report_id`を取得します。
-        3.  `data_list`内のすべての辞書に、取得した`report_id`を追加します。
-        4.  `data_list`を`financial_data`テーブルに一括挿入します。
-        5.  トランザクションをコミットします。エラーが発生した場合はロールバックします。
+この設計により、`api.py`はデータ変換に、Serviceはビジネスロジックに、RepositoryはDBアクセスにそれぞれ専念でき、非常に見通しが良く、テストしやすい構造が実現します。
