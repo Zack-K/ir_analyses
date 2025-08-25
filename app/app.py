@@ -98,6 +98,7 @@ path_list = {
 }
 
 
+#TODO 最終的にここはDBから値を取得して企業名を絞り込む時に使うため変更予定
 selected_company = st.sidebar.selectbox("Choose Company", list(path_list.keys()))
 
 path = path_list[selected_company]
@@ -112,8 +113,13 @@ df = pd.read_csv(path, encoding=encoding, delimiter="\t")
 
 standardize_df = api.standardize_raw_data(df)
 
+# 企業データ
 company_data = api._company_mapping(standardize_df)
 
+
+# 四半期報告書の提出日取得　　
+#TODO 最終的にはDBから取得するため、ここは変更する
+filling_year = api._get_value(standardize_df, 'jpcrp_cor:QuarterlyAccountingPeriodCoverPage','FilingDateInstant')
 
 # 売上高の推移 NetSalesSummaryOfBusinessResults
 sales = "jpcrp_cor:NetSalesSummaryOfBusinessResults"
@@ -192,11 +198,13 @@ income_profit_rate_df = pd.DataFrame({
 })
 
 
-
 # 画面表示とレイアウトに関する項目
 st.set_page_config(layout="wide")
+# ヘッダーなど会社情報
 st.header(f"{company_data['company_name']}")
+st.write(filling_year)
 
+# Dataframeを表示可能にする
 option = st.checkbox("DataFrameを表示する")
 
 if option:
@@ -219,7 +227,7 @@ income_profit_rate_df_compare = pd.DataFrame({
 st.header("利益率比較（今期 vs 前期）")
 st.bar_chart(income_profit_rate_df_compare, use_container_width=True, stack=False)
 
-
+#　二列表示用設定
 col1, col2 = st.columns(2)
 
 with col1:
@@ -247,10 +255,3 @@ with col2:
                  x_label="当期純利益比較",
                  y="amount (yen)",
                  y_label="円")
-
-st.header("各種利益率")
-st.bar_chart(income_profit_rate_df,
-             x='title',
-             x_label="利益率",
-             y='rate',
-             y_label="%")
