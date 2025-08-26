@@ -1,618 +1,278 @@
 """企業データの分析を行うStreamlitアプリケーション"""
-import io
+
+import sys
 import os
-import glob
-import zipfile
-from datetime import datetime
-import requests
-import streamlit as st
-import pandas as pd
+from pathlib import Path
+import toml
+import logging
 import chardet
-import matplotlib.pyplot as plt
-import numpy as np
-import config
+import matplotlib.pyplot as pt
 
-# 指定した項目のデータを抽出する関数
-def extract_data(df, item_name, context=None, period=None):
-    query = f'項目名 == "{item_name}"'
-    if context:
-        query += f' & コンテキストID.str.contains("{context}")'
-    if period:
-        query += f' & 期間・時点 == "{period}"'
+import pandas as pd
+import streamlit as st
 
-    return df.query(query)
+# 環境対応型パス設定（Streamlitベストプラクティス）
+project_root = Path(__file__).parent.parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+# 安全なモジュールインポート
+try:
+    import utils.api as api
+except ImportError as e:
+    st.error(f"モジュールのインポートに失敗しました: {e}")
+    st.info("プロジェクトルートから 'streamlit run app/app.py' で実行してください")
+    st.stop()
+
+# 標準loggerの導入
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levellevel)s - %(message)s"
+)
+# 標準ロガーの取得
+logger = logging.getLogger(__name__)
 
 
-def safe_get_value(df, item_name, context=None, period=None):
-    result = extract_data(df, item_name, context, period)
-    if not result.empty:
-        return result['値'].iloc[0]
-    else:
-        return 0  # または None, np.nan など適切なデフォルト値
+# streamlitの設定読み込み
+def load_config():
+    """環境に応じて設定ファイルを読み込む関数
 
-
-# 財務指標を計算する関数
-def calculate_financial_metrics(df):
-    # 必要なデータを抽出
-    # 総資産
-    total_assets_current = safe_get_value(
-        df, '総資産額、経営指標等', 'CurrentQuarterInstant')
-    total_assets_prior = safe_get_value(
-        df, '総資産額、経営指標等', 'Prior1YearInstant')
-    total_assets_prior_quarter = safe_get_value(
-        df, '総資産額、経営指標等', 'Prior1QuarterInstant')
-
-    # 純資産
-    net_assets_current = safe_get_value(df, '純資産額、経営指標等', 'CurrentQuarterInstant')
-    net_assets_prior = safe_get_value(df, '純資産額、経営指標等', 'Prior1YearInstant')
-    net_assets_prior_quarter = safe_get_value(df, '純資産額、経営指標等', 'Prior1QuarterInstant')
-
-    # 当期純利益
-    net_income_current = safe_get_value(
-        df,
-        '親会社株主に帰属する当期純利益又は親会社株主に帰属する当期純損失（△）、経営指標等',
-        'CurrentYTDDuration'
-    )
-    net_income_prior_ytd = safe_get_value(
-        df,
-        '親会社株主に帰属する当期純利益又は親会社株主に帰属する当期純損失（△）、経営指標等',
-        'Prior1YTDDuration'
-    )
-    net_income_prior_year = safe_get_value(
-        df,
-        '親会社株主に帰属する当期純利益又は親会社株主に帰属する当期純損失（△）、経営指標等',
-        'Prior1YearDuration'
-    )
-
-    # 売上（営業収益）
-    revenue_current = safe_get_value(df, '営業収益、経営指標等', 'CurrentYTDDuration')
-    revenue_prior_ytd = safe_get_value(df, '営業収益、経営指標等', 'Prior1YTDDuration')
-    revenue_prior_year = safe_get_value(df, '営業収益、経営指標等', 'Prior1YearDuration')
-
-    # 経常利益
-    ordinary_income_current = safe_get_value(df, '経常利益又は経常損失（△）、経営指標等', 'CurrentYTDDuration')
-    ordinary_income_prior_ytd = safe_get_value(
-        df, '経常利益又は経常損失（△）、経営指標等', 'Prior1YTDDuration')
-    ordinary_income_prior_year = safe_get_value(
-        df, '経常利益又は経常損失（△）、経営指標等', 'Prior1YearDuration')
-
-    # 自己資本比率
-    equity_ratio_current = safe_get_value(
-        df, '自己資本比率、経営指標等', 'CurrentQuarterInstant')
-    equity_ratio_prior = safe_get_value(
-        df, '自己資本比率、経営指標等', 'Prior1YearInstant')
-    equity_ratio_prior_quarter = safe_get_value(
-        df, '自己資本比率、経営指標等', 'Prior1QuarterInstant')
-
-    # 文字列を数値に変換（マイナス値対応）
-    def parse_value(value):
-        # マイナス値を処理
-        if isinstance(value, str) and value.strip() == '－':
-            return 0
-        return float(value)
-
-    # 数値に変換
-    total_assets_current = parse_value(total_assets_current)
-    total_assets_prior = parse_value(total_assets_prior)
-    total_assets_prior_quarter = parse_value(total_assets_prior_quarter)
-
-    net_assets_current = parse_value(net_assets_current)
-    net_assets_prior = parse_value(net_assets_prior)
-    net_assets_prior_quarter = parse_value(net_assets_prior_quarter)
-
-    net_income_current = parse_value(net_income_current)
-    net_income_prior_ytd = parse_value(net_income_prior_ytd)
-    net_income_prior_year = parse_value(net_income_prior_year)
-
-    revenue_current = parse_value(revenue_current)
-    revenue_prior_ytd = parse_value(revenue_prior_ytd)
-    revenue_prior_year = parse_value(revenue_prior_year)
-
-    ordinary_income_current = parse_value(ordinary_income_current)
-    ordinary_income_prior_ytd = parse_value(ordinary_income_prior_ytd)
-    ordinary_income_prior_year = parse_value(ordinary_income_prior_year)
-
-    equity_ratio_current = parse_value(equity_ratio_current)
-    equity_ratio_prior = parse_value(equity_ratio_prior)
-    equity_ratio_prior_quarter = parse_value(equity_ratio_prior_quarter)
-
-    # 財務指標の計算
-    # 1. 収益性分析
-    # ROE (Return on Equity) = 当期純利益 ÷ 自己資本 × 100
-    roe_current = (net_income_current / net_assets_current) * 100
-    roe_prior_ytd = (
-        net_income_prior_ytd / net_assets_prior_quarter * 100
-        if net_assets_prior_quarter != 0 else 0
-    )
-
-    # ROA (Return on Assets) = 当期純利益 ÷ 総資産 × 100
-    roa_current = (net_income_current / total_assets_current) * 100
-    roa_prior_ytd = (
-        net_income_prior_ytd / total_assets_prior_quarter * 100
-        if total_assets_prior_quarter != 0 else 0
-    )
-
-    # 売上高純利益率 = 当期純利益 ÷ 売上高 × 100
-    net_profit_margin_current = (
-        net_income_current / revenue_current * 100
-        if revenue_current != 0 else 0
-    )
-    net_profit_margin_prior_ytd = (
-        net_income_prior_ytd / revenue_prior_ytd * 100
-        if revenue_prior_ytd != 0 else 0
-    )
-    net_profit_margin_prior_year = (
-        net_income_prior_year / revenue_prior_year * 100
-        if revenue_prior_year != 0 else 0
-    )
-
-    # 売上高経常利益率 = 経常利益 ÷ 売上高 × 100
-    ordinary_income_margin_current = (
-        ordinary_income_current / revenue_current * 100
-        if revenue_current != 0 else 0
-    )
-    ordinary_income_margin_prior_ytd = (
-        ordinary_income_prior_ytd / revenue_prior_ytd * 100
-        if revenue_prior_ytd != 0 else 0
-    )
-    ordinary_income_margin_prior_year = (
-        ordinary_income_prior_year / revenue_prior_year * 100
-        if revenue_prior_year != 0 else 0
-    )
-
-    # 2. 安定性分析
-    # 自己資本比率 = 自己資本 ÷ 総資産 × 100
-    # 既にデータとして取得済み
-
-    # 負債比率 = (総資産 - 自己資本) ÷ 自己資本 × 100
-    debt_to_equity_current = (
-        (total_assets_current - net_assets_current) / net_assets_current * 100
-        if net_assets_current != 0 else 0
-    )
-    debt_to_equity_prior = (
-        (total_assets_prior - net_assets_prior) / net_assets_prior * 100
-        if net_assets_prior != 0 else 0
-    )
-    debt_to_equity_prior_quarter = (
-        (total_assets_prior_quarter - net_assets_prior_quarter)
-        / net_assets_prior_quarter * 100
-        if net_assets_prior_quarter != 0 else 0
-    )
-
-    # 3. 成長性分析
-    # 売上高成長率 (前年同期比)
-    revenue_growth_ytd = (
-        (revenue_current - revenue_prior_ytd) / revenue_prior_ytd * 100
-        if revenue_prior_ytd != 0 else 0
-    )
-
-    # 当期純利益成長率 (前年同期比)
-    net_income_growth_ytd = (
-        (net_income_current - net_income_prior_ytd) / abs(net_income_prior_ytd) * 100
-        if net_income_prior_ytd != 0 else 0
-    )
-
-    # 経常利益成長率 (前年同期比)
-    ordinary_income_growth_ytd = (
-        (ordinary_income_current - ordinary_income_prior_ytd)
-        / abs(ordinary_income_prior_ytd) * 100
-        if ordinary_income_prior_ytd != 0 else 0
-    )
-
-    # 総資産成長率 (前期末比)
-    total_assets_growth = (
-        (total_assets_current - total_assets_prior) / total_assets_prior * 100
-        if total_assets_prior != 0 else 0
-    )
-
-    # 純資産成長率 (前期末比)
-    net_assets_growth = ((net_assets_current - net_assets_prior) / net_assets_prior) * 100 if net_assets_prior != 0 else 0
-
-    # 結果を辞書として返す
-    results = {
-        # 収益性指標
-        'ROE（自己資本利益率）': {
-            '当四半期累計期間': roe_current,
-            '前年度同四半期累計期間': roe_prior_ytd,
-            '変化': roe_current - roe_prior_ytd
-        },
-        'ROA（総資産利益率）': {
-            '当四半期累計期間': roa_current,
-            '前年度同四半期累計期間': roa_prior_ytd,
-            '変化': roa_current - roa_prior_ytd
-        },
-        '売上高純利益率': {
-            '当四半期累計期間': net_profit_margin_current,
-            '前年度同四半期累計期間': net_profit_margin_prior_ytd,
-            '前期': net_profit_margin_prior_year,
-            '変化（前年同期比）': net_profit_margin_current - net_profit_margin_prior_ytd
-        },
-        '売上高経常利益率': {
-            '当四半期累計期間': ordinary_income_margin_current,
-            '前年度同四半期累計期間': ordinary_income_margin_prior_ytd,
-            '前期': ordinary_income_margin_prior_year,
-            '変化（前年同期比）': ordinary_income_margin_current - ordinary_income_margin_prior_ytd
-        },
-
-        # 安定性指標
-        '自己資本比率': {
-            '当四半期会計期間末': equity_ratio_current * 100,  # パーセンテージに変換
-            '前期末': equity_ratio_prior * 100,
-            '前年度同四半期会計期間末': equity_ratio_prior_quarter * 100,
-            '変化（前期末比）': (equity_ratio_current - equity_ratio_prior) * 100,
-            '変化（前年同期比）': (equity_ratio_current - equity_ratio_prior_quarter) * 100
-        },
-        '負債比率': {
-            '当四半期会計期間末': debt_to_equity_current,
-            '前期末': debt_to_equity_prior,
-            '前年度同四半期会計期間末': debt_to_equity_prior_quarter,
-            '変化（前期末比）': debt_to_equity_current - debt_to_equity_prior,
-            '変化（前年同期比）': debt_to_equity_current - debt_to_equity_prior_quarter
-        },
-
-        # 成長性指標
-        '売上高成長率（前年同期比）': revenue_growth_ytd,
-        '当期純利益成長率（前年同期比）': net_income_growth_ytd,
-        '経常利益成長率（前年同期比）': ordinary_income_growth_ytd,
-        '総資産成長率（前期末比）': total_assets_growth,
-        '純資産成長率（前期末比）': net_assets_growth,
-
-        # 基礎データ（単位：百万円）
-        '基礎データ（百万円）': {
-            '売上高（当四半期累計）': revenue_current / 1000000,
-            '売上高（前年同四半期累計）': revenue_prior_ytd / 1000000,
-            '当期純利益（当四半期累計）': net_income_current / 1000000,
-            '当期純利益（前年同四半期累計）': net_income_prior_ytd / 1000000,
-            '経常利益（当四半期累計）': ordinary_income_current / 1000000,
-            '経常利益（前年同四半期累計）': ordinary_income_prior_ytd / 1000000,
-            '総資産（当四半期末）': total_assets_current / 1000000,
-            '総資産（前期末）': total_assets_prior / 1000000,
-            '純資産（当四半期末）': net_assets_current / 1000000,
-            '純資産（前期末）': net_assets_prior / 1000000
-        }
-    }
-
-    return results
-
-# 財務指標の結果を表示する関数
-def display_financial_metrics(results):
-    print("="*80)
-    print("財務指標分析結果")
-    print("="*80)
-
-    # 1. 収益性分析
-    print("\n【1. 収益性分析】")
-    print("-"*80)
-
-    # ROE
-    print(f"ROE（自己資本利益率）:")
-    print(f"  当四半期累計期間: {results['ROE（自己資本利益率）']['当四半期累計期間']:.2f}%")
-    print(f"  前年度同四半期累計期間: {results['ROE（自己資本利益率）']['前年度同四半期累計期間']:.2f}%")
-    print(f"  変化: {results['ROE（自己資本利益率）']['変化']:.2f}%ポイント")
-
-    # ROA
-    print(f"\nROA（総資産利益率）:")
-    print(f"  当四半期累計期間: {results['ROA（総資産利益率）']['当四半期累計期間']:.2f}%")
-    print(f"  前年度同四半期累計期間: {results['ROA（総資産利益率）']['前年度同四半期累計期間']:.2f}%")
-    print(f"  変化: {results['ROA（総資産利益率）']['変化']:.2f}%ポイント")
-
-    # 売上高純利益率
-    print(f"\n売上高純利益率:")
-    print(f"  当四半期累計期間: {results['売上高純利益率']['当四半期累計期間']:.2f}%")
-    print(f"  前年度同四半期累計期間: {results['売上高純利益率']['前年度同四半期累計期間']:.2f}%")
-    print(f"  前期: {results['売上高純利益率']['前期']:.2f}%")
-    print(f"  変化（前年同期比）: {results['売上高純利益率']['変化（前年同期比）']:.2f}%ポイント")
-
-    # 売上高経常利益率
-    print(f"\n売上高経常利益率:")
-    print(f"  当四半期累計期間: {results['売上高経常利益率']['当四半期累計期間']:.2f}%")
-    print(f"  前年度同四半期累計期間: {results['売上高経常利益率']['前年度同四半期累計期間']:.2f}%")
-    print(f"  前期: {results['売上高経常利益率']['前期']:.2f}%")
-    print(f"  変化（前年同期比）: {results['売上高経常利益率']['変化（前年同期比）']:.2f}%ポイント")
-
-    # 2. 安定性分析
-    print("\n【2. 安定性分析】")
-    print("-"*80)
-
-    # 自己資本比率
-    print(f"自己資本比率:")
-    print(f"  当四半期会計期間末: {results['自己資本比率']['当四半期会計期間末']:.2f}%")
-    print(f"  前期末: {results['自己資本比率']['前期末']:.2f}%")
-    print(f"  前年度同四半期会計期間末: {results['自己資本比率']['前年度同四半期会計期間末']:.2f}%")
-    print(f"  変化（前期末比）: {results['自己資本比率']['変化（前期末比）']:.2f}%ポイント")
-    print(f"  変化（前年同期比）: {results['自己資本比率']['変化（前年同期比）']:.2f}%ポイント")
-
-    # 負債比率
-    print(f"\n負債比率:")
-    print(f"  当四半期会計期間末: {results['負債比率']['当四半期会計期間末']:.2f}%")
-    print(f"  前期末: {results['負債比率']['前期末']:.2f}%")
-    print(f"  前年度同四半期会計期間末: {results['負債比率']['前年度同四半期会計期間末']:.2f}%")
-    print(f"  変化（前期末比）: {results['負債比率']['変化（前期末比）']:.2f}%ポイント")
-    print(f"  変化（前年同期比）: {results['負債比率']['変化（前年同期比）']:.2f}%ポイント")
-
-    # 3. 成長性分析
-    print("\n【3. 成長性分析】")
-    print("-"*80)
-
-    print(f"売上高成長率（前年同期比）: {results['売上高成長率（前年同期比）']:.2f}%")
-    print(f"当期純利益成長率（前年同期比）: {results['当期純利益成長率（前年同期比）']:.2f}%")
-    print(f"経常利益成長率（前年同期比）: {results['経常利益成長率（前年同期比）']:.2f}%")
-    print(f"総資産成長率（前期末比）: {results['総資産成長率（前期末比）']:.2f}%")
-    print(f"純資産成長率（前期末比）: {results['純資産成長率（前期末比）']:.2f}%")
-
-    # 基礎データ
-    print("\n【4. 基礎データ（単位：百万円）】")
-    print("-"*80)
-
-    for key, value in results['基礎データ（百万円）'].items():
-        print(f"{key}: {value:,.2f}")
-        
-
-# グラフを生成する関数
-def create_visualizations(results):
-    # フォントの設定
-    plt.rcParams['font.size'] = 12
-
-    # 1. 収益性指標の比較グラフ
-    plt.figure(figsize=(12, 8))
-
-    # 収益性指標の比較データ
-    metrics = ['ROE', 'ROA', '売上高純利益率', '売上高経常利益率']
-    current_values = [
-        results['ROE（自己資本利益率）']['当四半期累計期間'],
-        results['ROA（総資産利益率）']['当四半期累計期間'],
-        results['売上高純利益率']['当四半期累計期間'],
-        results['売上高経常利益率']['当四半期累計期間']
-    ]
-    prior_values = [
-        results['ROE（自己資本利益率）']['前年度同四半期累計期間'],
-        results['ROA（総資産利益率）']['前年度同四半期累計期間'],
-        results['売上高純利益率']['前年度同四半期累計期間'],
-        results['売上高経常利益率']['前年度同四半期累計期間']
+    Returns:
+        dict: 設定ファイルの内容、または空のdict
+    """
+    # 環境に応じた設定ファイルパスを試行
+    config_paths = [
+        "/config/config.toml",  # Docker環境
+        "./config/config.toml",  # ローカル環境（プロジェクトルートから実行）
+        "config/config.toml",  # ローカル環境（相対パス）
     ]
 
-    x = np.arange(len(metrics))
-    width = 0.35
+    for config_path in config_paths:
+        if os.path.exists(config_path):
+            try:
+                config = toml.load(config_path)
+                logger.info("設定ファイル読み込み成功:%s", config_path)
+                return config
+            except Exception as e:
+                logger.error("設定ファイル読み込み失敗:%s", e)
+                continue
 
-    fig, ax = plt.subplots(figsize=(12, 8))
-    rects1 = ax.bar(x - width/2, current_values, width, label='当四半期累計期間')
-    rects2 = ax.bar(x + width/2, prior_values, width, label='前年度同四半期累計期間')
-
-    ax.set_title('収益性指標の比較')
-    ax.set_ylabel('割合（％）')
-    ax.set_xticks(x)
-    ax.set_xticklabels(metrics)
-    ax.legend()
-
-    # 値を表示
-    def autolabel(rects):
-        for rect in rects:
-            height = rect.get_height()
-            ax.annotate(f'{height:.2f}%',
-                       xy=(rect.get_x() + rect.get_width() / 2, height),
-                       xytext=(0, 3),
-                       textcoords="offset points",
-                       ha='center', va='bottom')
-
-    autolabel(rects1)
-    autolabel(rects2)
-
-    plt.tight_layout()
-    plt.savefig('収益性指標.png')
-
-    # 2. 安定性指標の推移グラフ
-    plt.figure(figsize=(12, 8))
-
-    # 安定性指標のデータ
-    periods = ['前年度同四半期末', '前期末', '当四半期末']
-    equity_ratio_values = [
-        results['自己資本比率']['前年度同四半期会計期間末'],
-        results['自己資本比率']['前期末'],
-        results['自己資本比率']['当四半期会計期間末']
-    ]
-    debt_ratio_values = [
-        results['負債比率']['前年度同四半期会計期間末'],
-        results['負債比率']['前期末'],
-        results['負債比率']['当四半期会計期間末']
-    ]
-
-    fig, ax1 = plt.subplots(figsize=(12, 8))
-
-    color = 'tab:blue'
-    ax1.set_xlabel('期間')
-    ax1.set_ylabel('自己資本比率（％）', color=color)
-    ax1.plot(periods, equity_ratio_values, 'o-', color=color, label='自己資本比率')
-    ax1.tick_params(axis='y', labelcolor=color)
-
-    # 値を表示
-    for i, v in enumerate(equity_ratio_values):
-        ax1.text(i, v + 1, f"{v:.2f}%", color=color, ha='center')
-
-    ax2 = ax1.twinx()
-    color = 'tab:red'
-    ax2.set_ylabel('負債比率（％）', color=color)
-    ax2.plot(periods, debt_ratio_values, 'o-', color=color, label='負債比率')
-    ax2.tick_params(axis='y', labelcolor=color)
-
-    # 値を表示
-    for i, v in enumerate(debt_ratio_values):
-        ax2.text(i, v + 5, f"{v:.2f}%", color=color, ha='center')
-
-    plt.title('安定性指標の推移')
-
-    # 両方の凡例を追加
-    lines1, labels1 = ax1.get_legend_handles_labels()
-    lines2, labels2 = ax2.get_legend_handles_labels()
-    ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper left')
-
-    plt.tight_layout()
-    plt.savefig('安定性指標.png')
-
-    # 3. 成長率の比較グラフ
-    plt.figure(figsize=(12, 8))
-
-    growth_metrics = [
-        '売上高成長率\n（前年同期比）',
-        '当期純利益成長率\n（前年同期比）',
-        '経常利益成長率\n（前年同期比）',
-        '総資産成長率\n（前期末比）',
-        '純資産成長率\n（前期末比）'
-    ]
-
-    growth_values = [
-        results['売上高成長率（前年同期比）'],
-        results['当期純利益成長率（前年同期比）'],
-        results['経常利益成長率（前年同期比）'],
-        results['総資産成長率（前期末比）'],
-        results['純資産成長率（前期末比）']
-    ]
-
-    plt.bar(
-        growth_metrics,
-        growth_values,
-        color=[
-            'skyblue',
-            'lightgreen',
-            'salmon',
-            'lightblue',
-            'lightpink'
-        ]
-    )
-    plt.title('成長率の比較')
-    plt.ylabel('成長率（％）')
-    plt.grid(axis='y', linestyle='--', alpha=0.7)
-
-    # 値を表示
-    for i, v in enumerate(growth_values):
-        plt.text(i, v + (5 if v >= 0 else -15), f"{v:.2f}%", ha='center')
-
-    plt.tight_layout()
-    plt.savefig('成長率.png')
-    return plt
-
-# 財務データの要約レポートを生成する関数
-def generate_summary_report(results):
-    summary = {
-        'title': f'財務分析サマリーレポート {name}',
-        'date': datetime.now().strftime('%Y年%m月%d日'),
-        'content': {}
-    }
-
-    # 収益性の要約
-    if results['ROE（自己資本利益率）']['当四半期累計期間'] > results['ROE（自己資本利益率）']['前年度同四半期累計期間']:
-        roe_trend = "向上"
-    else:
-        roe_trend = "低下"
-
-    # 収益性の評価 (ROE 10%以上を良好とする一般的基準)
-    if results['ROE（自己資本利益率）']['当四半期累計期間'] > 10:
-        roe_evaluation = "良好"
-    elif results['ROE（自己資本利益率）']['当四半期累計期間'] > 5:
-        roe_evaluation = "普通"
-    else:
-        roe_evaluation = "低調"
-
-    summary['content']['収益性'] = (
-        f"当四半期の収益性は前年同期比で{roe_trend}しています。"
-        f"ROE（自己資本利益率）は{results['ROE（自己資本利益率）']['当四半期累計期間']:.2f}%で、"
-        f"{roe_evaluation}な水準です。"
-        f"売上高純利益率は{results['売上高純利益率']['当四半期累計期間']:.2f}"
-    )
-
-    return summary
+    logger.warning("設定ファイルが見つかりません。デフォルト設定を使用します。")
+    return {}
 
 
-def get_doc_id(company_name):
-    target_company = sd_df.loc[(sd_df["filerName"] == company_name)]
-    index = target_company.index
-    doc_id = target_company['docID'][index[0]]
-    return doc_id
+# 設定の読み込み
+config = load_config()
+
+# タイトルの取得
+# app_title = config.get("app", {}).get("title", "Default Title")
+# st.title(app_title)
+
+# TODO　日付の渡し方は検討　最終的にスケジュール指定してバッチ実行する
+# date = "2024-02-09"
+# API_ENDPOINT = config.get("edinetapi", {}).get("API_ENDPOINT", "dummy_key")
+# all_documents_dataframe = api.get_company_list(date)
+# API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD", "dummy_key")
+# financial_data_df = api.fetch_financial_data(all_documents_dataframe)
+# calculate_financial_metrics = api.fetch_financial_data(all_documents_dataframe)
+# st.dataframe(calculate_financial_metrics)
 
 
-API_ENDPOINT = config.API_ENDPOINT
-API_DOWNLOAD = config.API_DOWNLOAD
+# 分析内容
+# - 収益性ダッシュボード
+#    - 売上高の推移
+#    - 営業利益の推移
+#    - 経常利益の推移
+#    - 純利益の推移
+#    - 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
 
-API_KEY = os.getenv("EDINET_API_KEY")
-
-# 「書類一覧API」のリクエストURL
-request_params = {
-    "date": "2024-02-09",  # 修正点：日付を固定ではなく
-    "type": 2,  # 1=メタデータのみ、2=提出書類一覧及びメタデータ
-    "Subscription-Key": API_KEY,
+# セレクトボックス用のリスト
+path_list = {
+    "信越ポリマー株式会社": "./download/S100SSIM/XBRL_TO_CSV/jpcrp040300-q3r-001_E02388-000_2023-12-31_01_2024-02-09.csv",
+    "株式会社トーアミ": "./download/S100SSHR/XBRL_TO_CSV/jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv",
+    "四国電力株式会社": "./download/S100SSMQ/XBRL_TO_CSV/jpcrp040300-q3r-001_E04505-000_2023-12-31_01_2024-02-09.csv",
 }
 
-docs_submitted_json = requests.get(
-    f"{API_ENDPOINT}/documents.json", 
-    params=request_params,
-    timeout=30  # 30秒のタイムアウトを設定
-).json()
 
-# 取得データの確認
-if "results" in docs_submitted_json:
-    sd_df = pd.DataFrame(docs_submitted_json["results"])
-    sd_df = sd_df[sd_df["docDescription"].str.contains("四半期報告書", na=False)]
-else:
-    st.write("データが取得できませんでした。")
+# TODO 最終的にここはDBから値を取得して企業名を絞り込む時に使うため変更予定
+selected_company = st.sidebar.selectbox("Choose Company", list(path_list.keys()))
 
-company_name_list = sd_df['filerName'][:2]
+path = path_list[selected_company]
 
-os.makedirs('download', exist_ok=True)
+with open(path, "rb") as f:
+    raw_data = f.read()
+    result = chardet.detect(raw_data)
+    encoding = result["encoding"]
+    logger.info("Detected encoding: %s", encoding)
 
-for name in company_name_list:
-    doc_id = get_doc_id(name)
-    try:
-        url = f"{API_DOWNLOAD}/documents/{doc_id}"
-        print(url)
-        # EDINETの「書類取得API」に接続
-        respose = requests.get(
-            url,
-            {
-                "type": 5,  # 5:csv 2:pdfファイル
-                "Subscription-Key": API_KEY
-            },
-            timeout=30
-        )
-                                    
-        # csvファイルをzipで送られてくるので、会社毎にファイルを作成して配置
-        print(respose)
-        with zipfile.ZipFile(io.BytesIO(respose.content)) as z:
-            for file in z.namelist():
-                if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
-                    z.extract(file, path=f'download/{doc_id}')
-                    print(f'{name}:{doc_id}のファイルをダウンロードしました')
-    except requests.exceptions.RequestException as e:
-        print(f"リクエスト中にエラーが発生しました: {e}")
-    except zipfile.BadZipFile as e:
-        print(f"ZIPファイルの処理中にエラーが発生しました: {e}")
+df = pd.read_csv(path, encoding=encoding, delimiter="\t")
 
-dfs = {}
+standardize_df = api.standardize_raw_data(df)
 
-for name in company_name_list:
-    docId = get_doc_id(name)
-    csvfile = glob.glob(f'download/{docId}/XBRL_TO_CSV/*.csv')
-    if not csvfile:
-        print(f"CSVファイルが見つかりません: {docId}")
-        continue
-    csv_file_path = csvfile[0]
-    print(csv_file_path)
-    with open(csv_file_path, 'rb') as f:
-        raw_data = f.read()
-        result = chardet.detect(raw_data)
-        encoding = result['encoding']
-        print(f"Detected encoding: {encoding}")
+# 企業データ
+company_data = api._company_mapping(standardize_df)
 
-    dfs[name] = name
-    dfs[docId] = pd.read_csv(
-        csv_file_path,
-        encoding=encoding,
-        delimiter='\t'
+
+# 四半期報告書の提出日取得
+# TODO 最終的にはDBから取得するため、ここは変更する
+filling_year = api._get_value(
+    standardize_df, "jpcrp_cor:QuarterlyAccountingPeriodCoverPage", "FilingDateInstant"
+)
+
+# 売上高の推移 NetSalesSummaryOfBusinessResults
+sales = "jpcrp_cor:NetSalesSummaryOfBusinessResults"
+current_duration = "CurrentYTDDuration"
+prior_duration = "Prior1YTDDuration"
+last_year_total = "Prior1YearDuration"
+sales_current = api._get_value(standardize_df, sales, current_duration)
+sales_prior = api._get_value(standardize_df, sales, prior_duration)
+sales_last_year = api._get_value(standardize_df, sales, last_year_total)
+sales = pd.DataFrame(
+    {
+        "title": ["今四半期", "前四半期", "前期累計"],
+        "amount (yen)": [sales_current, sales_prior, sales_last_year],
+    }
+)
+
+# 営業利益の推移 jppfs_cor:OperatingIncome
+operation_income = "jppfs_cor:OperatingIncome"
+operation_income_current = api._get_value(
+    standardize_df, operation_income, current_duration
+)
+operation_income_prior = api._get_value(
+    standardize_df, operation_income, prior_duration
+)
+
+operation_income_df = pd.DataFrame(
+    {
+        "title": ["今四半期", "前期同四半期"],
+        "amount (yen)": [operation_income_current, operation_income_prior],
+    }
+)
+
+# 経常利益の推移 jpcrp_cor:OrdinaryIncomeLossSummaryOfBusinessResults
+ordinary_income = "jpcrp_cor:OrdinaryIncomeLossSummaryOfBusinessResults"
+ordinary_income_current = api._get_value(
+    standardize_df, ordinary_income, current_duration
+)
+ordinary_income_prior = api._get_value(standardize_df, ordinary_income, prior_duration)
+
+ordinary_income_df = pd.DataFrame(
+    {
+        "title": ["今四半期", "前期同四半期"],
+        "amount (yen)": [ordinary_income_current, ordinary_income_prior],
+    }
+)
+
+# 純利益の推移 jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults
+profit = "jpcrp_cor:ProfitLossAttributableToOwnersOfParentSummaryOfBusinessResults"
+profit_current = api._get_value(standardize_df, profit, current_duration)
+profit_prior = api._get_value(standardize_df, profit, prior_duration)
+
+profit_df = pd.DataFrame(
+    {
+        "title": ["今四半期", "前期同四半期"],
+        "amount (yen)": [profit_current, profit_prior],
+    }
+)
+
+# 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
+# 営業利益率 = ( 営業利益 / 売上高 ) *100
+oparation_income_rate_current = (
+    float(operation_income_current) / float(sales_current)
+) * 100
+oparation_income_rate_prior = (float(operation_income_prior) / float(sales_prior)) * 100
+
+# 経常利益率 ＝ ( 経常利益 / 売上高 ) * 100
+ordinary_income_rate_current = (
+    float(ordinary_income_current) / float(sales_current)
+) * 100
+ordinary_income_rate_prior = (float(ordinary_income_prior) / float(sales_prior)) * 100
+
+# 売上高純利益率 = ( 純利益 / 売上高 ) * 100
+profit_rate_current = (float(profit_current) / float(sales_current)) * 100
+profit_rate_prior = (float(profit_prior) / float(sales_prior)) * 100
+
+income_profit_rate_df = pd.DataFrame(
+    {
+        "title": [
+            "今期営業利益率",
+            "前期同四半期営業利益率",
+            "今期経常利益率",
+            "前期同四半期経常利益率",
+            "今期売上高利益率",
+            "前期同四半期売上高利益率",
+        ],
+        "rate": [
+            oparation_income_rate_current,
+            oparation_income_rate_prior,
+            ordinary_income_rate_current,
+            ordinary_income_rate_prior,
+            profit_rate_current,
+            profit_rate_prior,
+        ],
+    }
+)
+
+
+# 画面表示とレイアウトに関する項目
+st.set_page_config(layout="wide")
+# ヘッダーなど会社情報
+st.header(f"{company_data['company_name']}")
+st.write(filling_year)
+
+# Dataframeを表示可能にする
+option = st.checkbox("DataFrameを表示する")
+
+if option:
+    st.dataframe(standardize_df)
+
+# 利益率ごとに今期・前期を比較できる形に修正
+income_profit_rate_df_compare = pd.DataFrame(
+    {
+        "今期": [
+            oparation_income_rate_current,
+            ordinary_income_rate_current,
+            profit_rate_current,
+        ],
+        "前期": [
+            oparation_income_rate_prior,
+            ordinary_income_rate_prior,
+            profit_rate_prior,
+        ],
+    },
+    index=["営業利益率", "経常利益率", "売上高純利益率"],
+)
+
+st.header("利益率比較（今期 vs 前期）")
+st.bar_chart(income_profit_rate_df_compare, use_container_width=True, stack=False)
+
+# 二列表示用設定
+col1, col2 = st.columns(2)
+
+with col1:
+    st.header("売上高")
+    st.bar_chart(sales, x="title", x_label="売上高比較", y="amount (yen)", y_label="円")
+
+    st.header("営業利益")
+    st.bar_chart(
+        operation_income_df,
+        x="title",
+        x_label="営業純利益比較",
+        y="amount (yen)",
+        y_label="円",
     )
 
-st.title("企業データの統計的分析")
+with col2:
+    st.header("経常利益")
+    st.bar_chart(
+        ordinary_income_df,
+        x="title",
+        x_label="経常利益比較",
+        y="amount (yen)",
+        y_label="円",
+    )
 
-results = calculate_financial_metrics(dfs["S100SSMQ"])
-st.write(generate_summary_report(results))
-create_visualizations(results)
-st.image("安定性指標.png")
-st.image("収益性指標.png")
-st.image("成長率.png")
+    st.header("純利益")
+    st.bar_chart(
+        profit_df, x="title", x_label="当期純利益比較", y="amount (yen)", y_label="円"
+    )

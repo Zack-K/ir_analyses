@@ -1,18 +1,91 @@
+
 name: CI/CD Pipeline
 
+# このワークフローは、main/developブランチへのpushやmainへのプルリクエスト時に自動で実行されます
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
     branches: [ "main" ]
 
 jobs:
-  build:
+  lint:
+    name: Lint & Format Check
     runs-on: ubuntu-latest
     steps:
+      # リポジトリのソースコードをチェックアウト（取得）します
       - uses: actions/checkout@v4
+      # RuffというPython用の静的解析ツールでコード品質をチェックします
+      - name: Run Ruff (Python linter/formatter)
+        uses: astral-sh/ruff-action@v3
+
+  install:
+    name: Install Dependencies
+    runs-on: ubuntu-latest
+    steps:
+      # ソースコードを取得
+      - uses: actions/checkout@v4
+      # Python3.12のセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # 必要なPythonパッケージ（依存関係）をインストール
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+  docker-build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      # ソースコードを取得
+      - uses: actions/checkout@v4
+      # Dockerのビルドツール（Buildx）をセットアップ
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+      # Dockerイメージをビルド（. でカレントディレクトリのDockerfileを使う）
       - name: Build Docker image
         run: docker build -t my-app:latest .
-      # 必要に応じてテストやデプロイのステップを追加
+
+  test:
+    name: Run Pytest
+    runs-on: ubuntu-latest
+    services:
+      # テスト用にPostgreSQLデータベースを起動します
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: mydatabase
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U user"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      # ソースコードを取得
+      - uses: actions/checkout@v4
+      # Python3.12のセットアップ
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      # 必要なパッケージをインストール
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      # Pytestでテストを実行。DB接続情報は環境変数で渡します
+      - name: Run Pytest
+        env:
+          DB_USER: user
+          DB_PASSWORD: password
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: mydatabase
+        run: pytest tests/

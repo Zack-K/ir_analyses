@@ -1,0 +1,16 @@
+Metadata-Version: 2.4
+Name: ir_analyses
+Version: 0.1.0
+Summary: IR Analyses Project
+Requires-Python: >=3.11
+Requires-Dist: requests
+Requires-Dist: pandas
+Requires-Dist: numpy
+Requires-Dist: streamlit
+Requires-Dist: psycopg2-binary
+Requires-Dist: matplotlib-fontja
+Requires-Dist: chardet
+Requires-Dist: toml
+Requires-Dist: ruff
+Requires-Dist: sqlalchemy
+Requires-Dist: pytest

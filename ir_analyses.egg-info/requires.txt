@@ -9,4 +9,3 @@ toml
 ruff
 sqlalchemy
 pytest
-numpy

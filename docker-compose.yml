@@ -1,42 +1,67 @@
-version: '3.8'
-
 services:
   streamlit_app:
     build: .
     ports:
       - "8501:8501"
     volumes:
-      - ./app:/app
+      - ./config:/config:ro  # 設定ファイル用（次のステップで使用）
+      - ./utils:/app/utils:ro
+      - ./tests:/app/tests:ro  
     depends_on:
       - db
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
-    command: ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+      EDINET_API_KEY: ${EDINET_API_KEY} # 環境変数でAPIキーを設定
+    # リソース制限（セキュリティ強化）
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+    restart: unless-stopped
 
   data_processor:
     build: .
     volumes:
-      - ./app:/app
-      - ./scripts:/scripts
-      - ./config:/config
+      - ./app:/app:ro
+      - ./scripts:/scripts:ro
+      - ./config:/config:ro
+      - ./utils:/utils:ro
     depends_on:
       - db
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
-    # 手動実行用: docker-compose run data_processor python data_fetcher.py
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '2.0'
 
   db:
-    image: postgres:13
+    image: postgres:15-alpine  # より軽量で新しいバージョン
     environment:
       POSTGRES_DB: mydatabase
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
     volumes:
       - db_data:/var/lib/postgresql/data
-      - ./scripts:/docker-entrypoint-initdb.d
+      - ./sql:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
-    restart: always
+    restart: unless-stopped
+    # セキュリティ強化
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
 
 volumes:
   db_data:

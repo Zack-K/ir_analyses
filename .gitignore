@@ -1,0 +1,62 @@
+.DS_Store
+# Git関連
+.git/
+.gitignore
+.gitattributes
+
+# Python関連
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+.mypy_cache/
+.tox/
+venv/
+env/
+ENV/
+.uvrc
+
+# IDE関連
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+
+# ログとキャッシュ
+*.log
+logs/
+.cache/
+
+# OS関連
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ドキュメント
+README.md
+LICENSE
+CHANGELOG.md
+.env.example
+cursor_shell.md
+package-lock.json
+
+# バックアップ
+*.backup
+
+# claude code
+claude.md
+
+
+# プロジェクト用環境変数
+.env

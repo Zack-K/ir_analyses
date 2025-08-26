@@ -1,32 +1,39 @@
-<!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Table of Contents</summary>
-  <ol>
-    <li>
-      <a href="#about-the-project">プロジェクトについて</a>
-    </li>
-    <li>
-      <a href="#getting-started">Getting Started</a>
-      <ul>
-        <li><a href="#installation">Installation</a></li>
-      </ul>
-    </li>
-    <li><a href="#acknowledgments">Acknowledgments</a></li>
-  </ol>
-</details>
+# ETLプロジェクト
 
-## プロジェクトについて
-データ分析、データエンジニアリングの学習成果をポートフォリオとして作成したものです。  
+### 1. はじめに
+こんにちは、島崎啓一と申します。
+現在、就労移行支援事業所Neuro Diveでの訓練を通じてデータエンジニアやインフラエンジニア等の職種にキャリアチェンジを目指しています。
 
+このプロジェクトは、オープンデータのAPIからデータを抽出・変換・読み込み（ETL）の3ステップと分析までを一気通貫で行う経験を積むために開発しました。
 
-## Getting Started
+ETL機能は既存のOSSを利用せず、スクラッチで開発しています。
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+### 2. プロジェクト概要
 
-### インストール方法
+このアプリケーションでは、金融庁のEDINET APIから取得した四半期報告書のCSVを解析し、DBに保存、その結果をダッシュボードで可視化します。
 
+### 主な機能
+- データの取得・解析・標準化：データソースからCSVファイルをダウンロードし、必要な財務諸表のデータを抽出します。その際、文字列から数値型などのデータ型の変更も行います。
+- データの永続化・保存：解析・標準化したデータをPostgresDBに保存し、データアクセスを提供します。
+- データの可視化：Streamlitを使い、企業の収益性指標をダッシュボードとして表示します。
 
-## Acknowledgments
-Use this space to list resources you find helpful and would like to give credit to. I've included a few of my favorites to kick things off!
-* [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+### 3. 技術スタック
+| カテゴリ       | 技術                              |
+| --------------| -------------------------------- |
+| **言語**       | Python 3.12                      |
+| **フレームワーク** | Streamlit                      |
+| **ライブラリ**   | Pandas,SQLAlchemy など           |
+| **データベース** |  PostgreSQL                      |
+| **インフラ**     | Docker, Docker Compose          |
+| **CI/CD**      | GitHub Actions                   |
+| **その他**      | Ruff, uv, pytest                 |
+
+### 4. こだわった点・アピールポイント
+
+### クリーンなコードとテスト
+uvやRuff, pytest等のプロジェクト全体の保守性を高めるツール群を導入しています。
+
+### Dockerによる環境構築の簡易化
+`Dockerfile`と`docker-compose.yml`を用意することで、誰でも簡単に同じ環境を再現できるようにしました。
+
+### 5.セットアップ方法
