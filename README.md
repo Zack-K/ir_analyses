@@ -15,6 +15,8 @@
 - シンプルな2カラムUI、企業情報・提出日表示
 - DataFrameの表示/非表示切替
 
+![デモ画面](vizialize_demo.gif)
+
 ## 4. 技術選定・設計思想
 - Python/Pandasによる高速なデータ処理
 - Streamlitで迅速なUI構築
