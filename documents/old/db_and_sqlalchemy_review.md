@@ -1,3 +1,4 @@
+<!-- This file has been moved to the old folder for archival purposes. -->
 # DB・SQLAlchemy実装レビューと改善提案
 
 拝見しました。シニアエンジニアの視点から、`sqlalchemy` を活用したデータ永続化の改善点についてレビューします。
