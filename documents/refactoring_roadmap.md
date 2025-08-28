@@ -1,5 +1,7 @@
 # リファクタリング作業順序ガイド
 
+> **注意：このファイルは「IR分析プロジェクト 完成版ロードマップ・設計方針（統合版）」と同じ現行方針に基づいています。重複・古い設計ではなく、現行設計の補足・実装ガイドとして活用するため、`old`フォルダに移動しないでください。今後もdocuments配下で管理してください。**
+
 提示された3つのドキュメント（`api_refactoring_guide.md`, `app_refactoring_guide.md`, `db_and_sqlalchemy_review.md`）を精査し、リファクタリングの理想的な作業順序を提案します。
 
 これらのドキュメントは、現状の課題を解決し、アプリケーションをモダンで保守性の高い3層アーキテクチャ（View, Service, Repository）へと進化させるための、一貫した計画を示しています。
@@ -20,9 +22,8 @@
 *   **具体的な作業**:
     1.  `utils/db_models.py` を開き、各モデルクラスに `relationship` を追加して、テーブル間の関連を定義します（例: `Company.reports`, `Financial_report.company`）。
     2.  頻繁な検索対象となるカラム（`edinet_code`, `element_id`, 外部キーなど）に `index=True` を設定します。
-*   **主参照ガイド**: `db_and_sqlalchemy_review.md`
+*   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`
 
----
 
 #### **ステップ2: 【データアクセス層】Repositoryパターンの導入**
 
@@ -36,9 +37,8 @@
     2.  `utils/` 配下に `repositories` ディレクトリを新設します。
     3.  各モデル（`Company`, `Financial_item`等）に対応するRepositoryクラスを `repositories` 内に作成します。
     4.  各Repositoryに、`find_by_...`, `save`, `get_or_create` (Upsertロジック) といったDB操作メソッドを実装します。
-*   **主参照ガイド**: `db_and_sqlalchemy_review.md`, `api_refactoring_guide.md`
+*   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`, `old/api_refactoring_guide.md`
 
----
 
 #### **ステップ3: 【ビジネスロジック層】Service層の構築とデータ永続化フローの再設計**
 
@@ -52,9 +52,8 @@ Repositoryが整ったので、それらを利用してビジネスロジック�
     2.  `FinancialService` クラスを作成し、`save_financial_bundle` に相当するメソッドを実装します。このメソッド内でRepositoryを呼び出し、一連の永続化処理を単一トランザクションで実行します。
     3.  `utils/api.py` をリファクタリングし、`_..._mapping` 関数群が辞書ではなくSQLAlchemyモデルオブジェクトを返すように修正します。
     4.  `api.py` の永続化処理を、`FinancialService` のメソッド呼び出しに置き換えます。
-*   **主参照ガイド**: `api_refactoring_guide.md`
+*   **主参照ガイド**: `old/api_refactoring_guide.md`
 
----
 
 #### **ステップ4: 【プレゼンテーション層】UIとバックエンドのクリーンな連携**
 
@@ -67,9 +66,8 @@ Repositoryが整ったので、それらを利用してビジネスロジック�
     1.  `app/app.py` をリファクタリングし、DBやRepositoryへの直接アクセスをすべて削除します。
     2.  代わりに `FinancialService` を呼び出し、表示に必要なデータを取得するように変更します。（必要であれば、ServiceにUI向けのデータ取得メソッドを追加します）
     3.  Serviceから返されたDataFrameやDTO（Data Transfer Object）を用いて、Streamlitコンポーネント（グラフ等）を描画します。
-*   **主参照ガイド**: `app_refactoring_guide.md`
+*   **主参照ガイド**: `old/app_refactoring_guide.md`
 
----
 
 #### **ステップ5: 【品質保証】テストの全体的な刷新**
 
@@ -82,6 +80,6 @@ Repositoryが整ったので、それらを利用してビジネスロジック�
     1.  `tests/test_db_controller.py` を廃止し、`tests/repositories` や `tests/services` といった新しいテスト構造を作成します。
     2.  アサーションの対象を、DataFrameではなくモデルオブジェクトのプロパティ検証に変更します。
     3.  テストごとにトランザクションをロールバックする手法を導入し、テストの独立性と速度を向上させます。
-*   **主参照ガイド**: `db_and_sqlalchemy_review.md`
+*   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`
 
 この5ステップの順序で進めることで、堅牢で保守性の高いアプリケーションへと着実に移行できるでしょう。
