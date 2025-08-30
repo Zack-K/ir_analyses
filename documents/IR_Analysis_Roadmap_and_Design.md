@@ -1,5 +1,8 @@
 # IR分析プロジェクト 完成版ロードマップ・設計方針（統合版）
 
+## 0. 本プロジェクトのIssues管理先
+- https://github.com/users/Zack-K/projects/2/views/1
+
 ## 1. はじめに
 
 本ドキュメントは、IR分析プロジェクトのMVP（Minimum Viable Product）から完成版へと進化させるための、開発ロードマップと設計方針を統合的にまとめたものです。  
@@ -150,16 +153,20 @@ sequenceDiagram
 ### スプリント1（1週目）
 
 1. **設計方針の確定・ドキュメント整備**
-   - 3層アーキテクチャの設計レビュー
+   - [c] 3層アーキテクチャの設計レビュー
    - README・設計書のアップデート
 
-2. **DBモデルの強化**
-   - `relationship`・`index`の追加
-   - モデル定義のリファクタリング
+2. **[DONE] DBモデルの強化**
+   - [c] `relationship`・`index`の追加
+   - [c] モデル定義のリファクタリング
+      - 実績
+         - 8/29 1h
 
-3. **Repositoryパターン導入**
+3. **[DOING]Repositoryパターン導入**
    - `db_controller.py`廃止、各モデルごとにRepositoryクラス新設
    - Upsert/トランザクション管理の実装
+      - 実績
+         - 8/29 0.5h 
 
 4. **Serviceレイヤー雛形作成**
    - ビジネスロジック層の新設
