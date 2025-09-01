@@ -20,8 +20,8 @@
     *   モデル間の関連性を定義し、データアクセスを直感的にする。
     *   検索パフォーマンスを向上させる。
 *   **具体的な作業**:
-    1.  `utils/db_models.py` を開き、各モデルクラスに `relationship` を追加して、テーブル間の関連を定義します（例: `Company.reports`, `Financial_report.company`）。
-    2.  頻繁な検索対象となるカラム（`edinet_code`, `element_id`, 外部キーなど）に `index=True` を設定します。
+    ~~1.  `utils/db_models.py` を開き、各モデルクラスに `relationship` を追加して、テーブル間の関連を定義します（例: `Company.reports`, `Financial_report.company`）。~~
+    ~~2.  頻繁な検索対象となるカラム（`edinet_code`, `element_id`, 外部キーなど）に `index=True` を設定します。~~
 *   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`
 
 
@@ -33,7 +33,7 @@
     *   DBとの対話ロジックをカプセル化し、テスト容易性を向上させる。
     *   データアクセス層のインターフェースをモデルオブジェクト中心に統一する。
 *   **具体的な作業**:
-    1.  `utils/` 配下に `repositories` ディレクトリを新設します。
+    ~~1.  `utils/` 配下に `repositories` ディレクトリを新設します。~~
     2.  `utils/repositories/base_repository.py` を作成し、共通のCRUD処理とセッション管理を担う `BaseRepository` クラスを定義します。
     3.  各モデル（`Company`, `Financial_item`等）に対応するRepositoryクラスを `repositories` 内に作成します。これらのクラスは `BaseRepository` を継承します。
     4.  各Repositoryに、`find_by_...`, `get_or_create` (Upsertロジック) といった、モデルに特化したDB操作メソッドを実装します。
