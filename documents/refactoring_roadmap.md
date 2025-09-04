@@ -31,18 +31,18 @@
 
 *   **目的**:
     *   DBとの対話ロジックをカプセル化し、テスト容易性を向上させる。
-    *   データアクセス層のインターフェースをモデルオブジェクト中心に統一する。
+    *   将来のDBからの読み取り機能実装に向けた基盤を構築する。
 *   **具体的な作業**:
-    ~~1.  `utils/` 配下に `repositories` ディレクトリを新設します。~~
-    2.  `utils/repositories/base_repository.py` を作成し、共通のCRUD処理とセッション管理を担う `BaseRepository` クラスを定義します。
-    3.  各モデル（`Company`, `Financial_item`等）に対応するRepositoryクラスを `repositories` 内に作成します。これらのクラスは `BaseRepository` を継承します。
-    4.  各Repositoryに、`find_by_...`, `get_or_create` (Upsertロジック) といった、モデルに特化したDB操作メソッドを実装します。
-    5.  すべてのDB操作がRepositoryに移行した後、`utils/db_controller.py` を廃止します。
+    1.  `utils/` 配下に `repositories` ディレクトリを新設します。
+    2.  `utils/repositories/base_repository.py` を作成し、共通のDBアクセス処理とセッション管理を担う `BaseRepository` クラスを定義します。
+    3.  各モデルに対応するRepositoryクラスを `repositories` 内に作成します。
+    4.  **`Create` (作成) / `Delete` (削除)** メソッドを実装します。`Update` (更新) はスコープ外とし、単純なInsert処理を実装します。
+    5.  **`Read` (読み取り)** 系メソッドは、将来の拡張に備え、**インターフェース（器）のみを定義**し、中身は空のデータを返すダミー実装とします。
+    6.  すべてのDB書き込み処理がRepositoryに移行した後、`utils/db_controller.py` を廃止します。
 
 *   **実装方針の詳細**:
-    *   **セッション管理**: RepositoryはコンストラクタでDBセッションを外部から受け取ります（依存性の注入）。`db_controller.py`のように、各メソッドがセッションを生成・破棄する方式は採用しません。これにより、将来Service層でトランザクションを管理しやすくなります。
-    *   **メソッドの責務**: Repositoryのメソッドは、モデルのオブジェクトを直接引数として受け取り、返り値もDataFrameではなくモデルオブジェクト（またはそのリスト）とします。これにより、よりオブジェクト指向的なデータアクセスを実現します。
-    *   **共通化**: `BaseRepository`が基本的なCRUD（追加、取得、削除など）を提供し、個別のRepositoryはそれを継承して、`find_by_edinet_code`のようなドメイン固有のメソッドの追加に専念します。
+    *   **セッション管理**: RepositoryはコンストラクタでDBセッションを外部から受け取ります（依存性の注入）。これにより、Service層でトランザクションを管理しやすくなります。
+    *   **メソッドの責務**: Repositoryのメソッドは、モデルのオブジェクトを直接引数として受け取り、返り値もモデルオブジェクト（またはそのリスト）とします。
 
 *   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`, `old/api_refactoring_guide.md`
 
