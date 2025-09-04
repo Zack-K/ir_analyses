@@ -54,14 +54,32 @@ sales_df = pd.DataFrame({"title": ["今四半期", "前四半期"], "amount": [s
 st.bar_chart(sales_df)
 
 
-# --- After (理想のapp.py) ---
-# Serviceをインスタンス化 (DIコンテナなどを使うとより良い)
-# financial_service = FinancialService() 
+# --- After (st.connection を活用した理想のapp.py) ---
+import streamlit as st
+# from services import FinancialService
+# from uow import UnitOfWork # Unit of Work パターンを導入する場合
 
-# 1. Serviceに必要な情報を渡して呼び出す
+# 1. st.connectionでDB接続を確立し、セッションを取得
+#    接続情報は .streamlit/secrets.toml で管理
+conn = st.connection("my_db", type="sql")
+session = conn.session
+
+# 2. 取得したセッションを使ってService/UoWをインスタンス化（依存性の注入）
+# uow = UnitOfWork(session)
+# financial_service = FinancialService(uow)
+#
+# ※UoW を使わない場合
+# from repositories import CompanyRepository, FinancialDataRepository
+# company_repo = CompanyRepository(session)
+# data_repo = FinancialDataRepository(session)
+# financial_service = FinancialService(company_repo, data_repo)
+
+
+# 3. Serviceに必要な情報を渡して呼び出す
+#    Serviceの読み取りメソッドには @st.cache_data を付けるとさらに良い
 sales_summary_df = financial_service.get_sales_summary(company_id="E01234")
 
-# 2. 返ってきたデータをそのまま表示する
+# 4. 返ってきたデータをそのまま表示する
 st.header("売上高")
 st.bar_chart(sales_summary_df, x="period", y="sales")
 ```
@@ -78,28 +96,38 @@ st.bar_chart(sales_summary_df, x="period", y="sales")
 
 **【実装イメージ (`services/financial_service.py`)】**
 ```python
+from dataclasses import dataclass
+
+# DTOを定義
+@dataclass
+class SalesSummaryDTO:
+    period: str
+    sales: int
+
 class FinancialService:
     def __init__(self, session):
         # Repositoryを初期化
         self.company_repo = CompanyRepository(session)
         self.data_repo = FinancialDataRepository(session)
 
-    def get_sales_summary(self, company_edinet_code: str) -> pd.DataFrame:
+    def get_sales_summary(self, company_edinet_code: str) -> list[SalesSummaryDTO]:
         # 1. Repositoryを使って会社情報を取得
         company = self.company_repo.find_by_edinet_code(company_edinet_code)
         if not company:
-            return pd.DataFrame()
+            return []
 
         # 2. Repositoryを使って時系列データを取得
         #    (find_sales_time_seriesのような専用メソッドをRepositoryに用意)
         sales_data = self.data_repo.find_sales_time_series(company.company_id)
 
-        # 3. モデルオブジェクトのリストをDataFrameに変換・加工
+        # 3. モデルオブジェクトのリストをDTOのリストに変換・加工
         #    (この変換ロジックがServiceの価値)
-        df = pd.DataFrame([(d.report.fiscal_year, d.value) for d in sales_data], columns=["period", "sales"])
-        df = df.sort_values("period").reset_index(drop=True)
+        dto_list = [
+            SalesSummaryDTO(period=d.report.fiscal_year, value=d.value)
+            for d in sales_data
+        ]
         
-        return df
+        return sorted(dto_list, key=lambda d: d.period)
 ```
 
 ### 3.3. `Repository`レイヤーの役割（読み取り）

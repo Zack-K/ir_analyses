@@ -121,12 +121,12 @@ PM・シニアエンジニア・スクラムマスターの視点から、2週�
 
 ```mermaid
 graph TD
-   VC[View/Controller<br>app.py, Streamlit UI] -->|リクエスト/レスポンス| SVC[Service]
-   SVC -->|DTO/モデル| REP[Repository]
+   VC[View/Controller<br>app.py, Streamlit UI] -->|リクエスト| SVC[Service]
+   SVC -->|モデル| REP[Repository]
    REP -->|CRUD| DB[(DB)]
    DB -->|データ| REP
    REP -->|モデル| SVC
-   SVC -->|集計結果| VC
+   SVC -->|DTO| VC
 ```
 
 ---
@@ -239,8 +239,11 @@ sequenceDiagram
 - トランザクション管理
 
 ### 5.5. `app.py`
-- UIロジックとデータ取得ロジックの分離
-- Serviceレイヤー呼び出しによるデータ表示
+- UIロジックとビジネスロジックの分離
+- Streamlitの`st.connection`機能を用いたDBセッションの管理
+- 取得したセッションをServiceレイヤー（またはUnit of Work）に注入（Dependency Injection）
+- Serviceレイヤーの呼び出しと、結果の表示に特化
+- 読み取り専用処理において`st.cache_data`を利用したパフォーマンス最適化
 
 ---
 
@@ -249,6 +252,28 @@ sequenceDiagram
 - モデルオブジェクトのプロパティ検証中心のテスト
 - テストごとにトランザクションをロールバック
 - CI/CDによる自動化
+- バッチ実行・スケジュール化対応
+
+---
+
+## 7. 今後の拡張計画
+
+- DB連携・永続化（PostgreSQL/SQLAlchemy）
+- Serviceレイヤー導入による責務分離
+- 企業選択の拡張（EDINETコード検索、DBから動的取得）
+- 追加財務指標・複数企業比較・期間選択機能
+- 単体テスト・例外処理・運用面の強化
+
+---
+
+## 8. 結論
+
+本ロードマップと設計方針に沿って開発を進めることで、  
+MVPから完成版への進化がスムーズに実現でき、  
+拡張性・保守性・テスト容易性に優れたIR分析基盤を構築できます。
+
+今後は「DB連携」「Serviceレイヤー導入」「企業選択の拡張」「分析機能の拡充」「テスト・運用面の強化」を優先的に進めてください。
+よる自動化
 - バッチ実行・スケジュール化対応
 
 ---
