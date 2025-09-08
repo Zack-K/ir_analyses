@@ -47,7 +47,7 @@ class Financial_item(Base):
     __tablename__ = "financial_items"
     item_id = Column(Integer, primary_key=True, autoincrement=True)
     element_id = Column(String(300), nullable=False, unique=True)
-    item_name = Column(String(300), nullable=False)
+    item_name = Column(String(300), nullable=False, unique=True)
     category = Column(String(50), nullable=True)
     unit_type = Column(String(20), nullable=True)
     created_at = Column(
