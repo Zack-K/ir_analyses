@@ -1,8 +1,8 @@
-'''"""Financial_itemモデルのためのリポジトリクラス。
-
-    汎用的なCRUD操作はBaseRepositoryから継承し、
-    Financial_itemモデルに特化したデータアクセスロジックを提供します。
-    """
+"""
+Financial_itemモデルのためのリポジトリクラス。                                                                                                           │
+汎用的なCRUD操作はBaseRepositoryから継承し、                                                                                                               │
+Financial_itemモデルに特化したデータアクセスロジックを提供します。  
+"""
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -17,4 +17,3 @@ class FinancialItemRepository(BaseRepository[Financial_item]):
         statement = select(Financial_item).where(Financial_item.element_id == element_id)
         result = self.session.scalars(statement).scalar_one_or_none()
         return result
-'''
