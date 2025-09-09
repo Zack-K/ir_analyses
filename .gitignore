@@ -60,6 +60,11 @@ claude.md
 # プロジェクト用環境変数
 .env
 
+# 仮想環境関連の不要ファイル
+*.egg-info/
+requirements.txt
+requirements.lock
+
 # その他
 *.sqlite3
 # テスト関連(pytestの学習後に削除予定、一旦はgitignoreに追加)
