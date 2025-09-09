@@ -54,8 +54,8 @@ class BaseRepository(Generic[T]):
     def add(self, entity: T) -> None:
         self.session.add(entity)
 
-    def upsert(self, entity: T) -> None:
-        self.session.merge(entity)
+    def upsert(self, entity: T) -> T:
+        return self.session.merge(entity)
 
     def delete(self, entity: T) -> None:
         self.session.delete(entity)
