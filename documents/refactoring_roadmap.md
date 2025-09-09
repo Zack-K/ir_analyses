@@ -33,12 +33,11 @@
     *   DBとの対話ロジックをカプセル化し、テスト容易性を向上させる。
     *   将来のDBからの読み取り機能実装に向けた基盤を構築する。
 *   **具体的な作業**:
-    1.  `utils/` 配下に `repositories` ディレクトリを新設します。
-    2.  `utils/repositories/base_repository.py` を作成し、共通のDBアクセス処理とセッション管理を担う `BaseRepository` クラスを定義します。
-    3.  各モデルに対応するRepositoryクラスを `repositories` 内に作成します。
-    4.  **`Create` (作成) / `Delete` (削除)** メソッドを実装します。`Update` (更新) はスコープ外とし、単純なInsert処理を実装します。
-    5.  **`Read` (読み取り)** 系メソッドは、将来の拡張に備え、**インターフェース（器）のみを定義**し、中身は空のデータを返すダミー実装とします。
-    6.  すべてのDB書き込み処理がRepositoryに移行した後、`utils/db_controller.py` を廃止します。
+    ~~1.  `utils/` 配下に `repositories` ディレクトリを新設します。~~
+    ~~2.  `utils/repositories/base_repository.py` を作成し、共通のDBアクセス処理とセッション管理を担う `BaseRepository` クラスを定義します。~~
+    ~~3.  各モデルに対応するRepositoryクラスを `repositories` 内に作成します。~~
+    ~~4.  **`Create` (作成) / `Delete` (削除)** メソッドを実装します。`Update` (更新) はスコープ外とし、単純なInsert処理を実装します。~~
+    5.  すべてのDB書き込み処理がRepositoryに移行した後、`utils/db_controller.py` を廃止します。
 
 *   **実装方針の詳細**:
     *   **セッション管理**: RepositoryはコンストラクタでDBセッションを外部から受け取ります（依存性の注入）。これにより、Service層でトランザクションを管理しやすくなります。
