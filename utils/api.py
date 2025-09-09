@@ -14,12 +14,8 @@ import chardet
 import pandas as pd
 import requests
 
-from utils.db_models import Company, Financial_data, Financial_item, Financial_report
-import utils.db_controller as db
-
 # 標準ロガーの取得
 logger = logging.getLogger(__name__)
-
 
 
 # streamlitの設定読み込み
@@ -53,7 +49,6 @@ def load_config(path: str = None) -> dict:
             # 対話モードなどで __file__ が未定義の場合のフォールバック
             paths_to_check.append("./config/config.toml")
 
-
     for config_path in paths_to_check:
         if os.path.exists(config_path):
             try:
@@ -61,11 +56,15 @@ def load_config(path: str = None) -> dict:
                 logger.info("設定ファイルを読み込みました: %s", config_path)
                 return config_data  # ★成功したら即座に返す
             except Exception as e:
-                logger.error("設定ファイルの読み込みに失敗しました: %s, エラー: %s", config_path, e)
-                continue # 次の候補パスへ
+                logger.error(
+                    "設定ファイルの読み込みに失敗しました: %s, エラー: %s",
+                    config_path,
+                    e,
+                )
+                continue  # 次の候補パスへ
 
     logger.warning("有効な設定ファイルが見つかりませんでした。")
-    return {} # すべての候補で見つからなかった場合
+    return {}  # すべての候補で見つからなかった場合
 
 
 # 設定の読み込み
@@ -207,53 +206,52 @@ def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
     return company_financial_dataframe
 
 
-
 def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     生のDataFrameを、DBモデルにマッピングしやすいように整形・標準化する関数。
-    
+
     - カラム名を日本語から英語に統一する。
     - '値'カラムを、数値とテキストに分類し、新しいカラムを作成する。
-    
+
     Args:
         df (pd.DataFrame): CSVから読み込んだ生のDataFrame。
-   
+
     Returns:
         pd.DataFrame: 整形済みのDataFrame。
     """
 
     # カラム名を英語化、コード上からアクセスしやすくする
     column_mapping = {
-        '要素ID': 'element_id',
-        '項目名': 'item_name_jp',
-        'コンテキストID': 'context_id',
-        '相対年度': 'fiscal_year_relative',
-        '連結・個別': 'consolidated_type',
-        '期間・時点': 'period_type',
-        'ユニットID': 'unit_id',
-        '単位': 'unit_name',
-        '値': 'original_value'
+        "要素ID": "element_id",
+        "項目名": "item_name_jp",
+        "コンテキストID": "context_id",
+        "相対年度": "fiscal_year_relative",
+        "連結・個別": "consolidated_type",
+        "期間・時点": "period_type",
+        "ユニットID": "unit_id",
+        "単位": "unit_name",
+        "値": "original_value",
     }
     df_renamed = df.rename(columns=column_mapping)
 
     # 値のデータ型変換　文字＝＞数値, 文字データは別のカラムで保持
-    df_renamed['value'] = pd.to_numeric(df_renamed['original_value'],
-                                        errors='coerce')
+    df_renamed["value"] = pd.to_numeric(df_renamed["original_value"], errors="coerce")
     # データ上、小数点が発生するものもあるため下二桁まで表示可能に設定
-    pd.set_option('display.float_format', '{:,.2f}'.format)
-    df_renamed['is_numeric'] = df_renamed['value'].notna()
-    df_renamed['value_text'] = df_renamed["original_value"].where(
-        ~df_renamed["is_numeric"])
+    pd.set_option("display.float_format", "{:,.2f}".format)
+    df_renamed["is_numeric"] = df_renamed["value"].notna()
+    df_renamed["value_text"] = df_renamed["original_value"].where(
+        ~df_renamed["is_numeric"]
+    )
 
-    df_processed = df_renamed.drop(columns=['original_value'])
+    df_processed = df_renamed.drop(columns=["original_value"])
 
     logger.info("データの標準化処理が完了しました。")
     return df_processed
 
 
-def _get_value(source_df: pd.DataFrame,
-               element_id: str,
-               context_id: Optional[str] = None) -> Union[float, str, None]:
+def _get_value(
+    source_df: pd.DataFrame, element_id: str, context_id: Optional[str] = None
+) -> Union[float, str, None]:
     """
     標準化されたDataFrameから、特定の要素IDに一致する単一の値を安全に抽出する。
 
@@ -277,22 +275,24 @@ def _get_value(source_df: pd.DataFrame,
     """
 
     try:
-        extract_df = source_df[source_df['element_id'] == element_id]
+        extract_df = source_df[source_df["element_id"] == element_id]
         logger.info("element_idと一致する行を取得しました")
 
         if len(extract_df) > 1 and context_id:
-            extract_df = extract_df[extract_df['context_id'] == context_id]
+            extract_df = extract_df[extract_df["context_id"] == context_id]
 
         target_row = extract_df.iloc[0]
-        if target_row['is_numeric']:
-            extract_value = target_row['value']
+        if target_row["is_numeric"]:
+            extract_value = target_row["value"]
             logger.info("element_idと一致する行から数値データを取得しました")
         else:
-            extract_value = target_row['value_text']
+            extract_value = target_row["value_text"]
             logger.info("element_idと一致する行から文字データを取得しました")
         return extract_value
     except (KeyError, IndexError) as e:
-        logger.error("値の取得処理中に予期せぬエラーが発生しました (ID: %s): %s", element_id, e)
+        logger.error(
+            "値の取得処理中に予期せぬエラーが発生しました (ID: %s): %s", element_id, e
+        )
         return None
 
 
@@ -320,16 +320,18 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
     """
     try:
         mapping_dict = config["xbrl_mapping"]["company"]
-    except KeyError as e:
-        logger.error("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
+    except KeyError:
+        logger.error(
+            '設定ファイルに["xbrl_mapping"]["company"]の定義が見つかりません。'
+        )
         raise
 
     # すべてのデータを取得する
     company_data = {
-            key: _get_value(source_df, element_id)
-            for key, element_id in mapping_dict.items()
-        }
-    #　必須項目のチェック
+        key: _get_value(source_df, element_id)
+        for key, element_id in mapping_dict.items()
+    }
+    # 必須項目のチェック
     required_keys = ["edinet_code", "company_name"]
     missing_keys = [key for key in required_keys if company_data.get(key) is None]
 
@@ -361,28 +363,30 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
         KeyError: `source_df`に必須カラムが欠損している場合に送出されます。
     """
     # dfから財務項目行をフィルタリング
-    financial_item_df = source_df[source_df['element_id'].str.contains("jppfs_cor:", na=False)].copy()
+    financial_item_df = source_df[
+        source_df["element_id"].str.contains("jppfs_cor:", na=False)
+    ].copy()
 
     # 処理対象の行がなければ空のリストを返す
     if financial_item_df.empty:
         return []
 
     # element_idを基に重複を排除
-    financial_item_df = financial_item_df.drop_duplicates(subset=['element_id'])
+    financial_item_df = financial_item_df.drop_duplicates(subset=["element_id"])
 
     # categoryの判定
-    financial_item_df['category'] = np.where(
-        financial_item_df['consolidated_type'] == "連結",
-        'Consolidated',
-        'Non-consolidated'
+    financial_item_df["category"] = np.where(
+        financial_item_df["consolidated_type"] == "連結",
+        "Consolidated",
+        "Non-consolidated",
     )
 
     # DB登録用にカラム名を定義 (元カラム名 -> DBモデルカラム名)
     column_mapping = {
-        'element_id': 'element_id',
-        'item_name_jp': 'item_name',
-        'unit_id': 'unit_type',
-        'category': 'category' 
+        "element_id": "element_id",
+        "item_name_jp": "item_name",
+        "unit_id": "unit_type",
+        "category": "category",
     }
 
     # 必須カラムのリスト
@@ -393,13 +397,12 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
 
     # カラム名をDBモデルに合わせてリネーム
     return_df = return_df.rename(columns=column_mapping)
-    
+
     # 辞書型のListへ変換して返却
-    return return_df.to_dict('records')
+    return return_df.to_dict("records")
 
 
-def _financial_report_mapping(source_df: pd.DataFrame,
-                              company_id: int) -> dict:
+def _financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict:
     """
     DataFrameから報告書情報を抽出し、Financial_reportモデル用の辞書を作成する。
 
@@ -423,9 +426,10 @@ def _financial_report_mapping(source_df: pd.DataFrame,
     """
     try:
         mapping_dict = config["xbrl_mapping"]["financial_report"]
-    except KeyError as e:
+    except KeyError:
         logger.error(
-            "設定ファイルに[\"xbrl_mapping\"][\"financial_report\"]の定義が見つかりません。")
+            '設定ファイルに["xbrl_mapping"]["financial_report"]の定義が見つかりません。'
+        )
         raise
 
     financial_report_data = {
@@ -433,14 +437,16 @@ def _financial_report_mapping(source_df: pd.DataFrame,
         for key, element_id in mapping_dict.items()
     }
 
-    financial_report_data['company_id'] = company_id
+    financial_report_data["company_id"] = company_id
 
     # 会計年度と四半期情報を取得
-    fiscal_year_and_quarter = financial_report_data.get('fiscal_year_and_quarter')
+    fiscal_year_and_quarter = financial_report_data.get("fiscal_year_and_quarter")
 
     # 値の検証：Noneや空文字列の場合は不正な値としてエラーを送出
     if fiscal_year_and_quarter is None or fiscal_year_and_quarter == "":
-        error_message = f"fiscal_year_and_quarterの値が無効です: '{fiscal_year_and_quarter}'"
+        error_message = (
+            f"fiscal_year_and_quarterの値が無効です: '{fiscal_year_and_quarter}'"
+        )
         logger.error(error_message)
         raise ValueError(error_message)
 
@@ -449,7 +455,7 @@ def _financial_report_mapping(source_df: pd.DataFrame,
     # 会計年度を抽出（String型で保存）
     fiscal_year = _extract_fiscal_year(content)
     if fiscal_year is not None:
-        financial_report_data['fiscal_year'] = fiscal_year
+        financial_report_data["fiscal_year"] = fiscal_year
     else:
         logger.error("会計年度の抽出に失敗しました。処理を中断します。")
         raise ValueError(f"会計年度の抽出に失敗しました: '{content}'")
@@ -457,7 +463,7 @@ def _financial_report_mapping(source_df: pd.DataFrame,
     # 四半期を抽出
     quarter_type = _extract_quarter_type(content)
     if quarter_type is not None:
-        financial_report_data['quarter_type'] = quarter_type
+        financial_report_data["quarter_type"] = quarter_type
     else:
         logger.error("四半期の抽出に失敗しました。処理を中断します。")
         raise ValueError(f"四半期の抽出に失敗しました: '{content}'")
@@ -468,20 +474,20 @@ def _financial_report_mapping(source_df: pd.DataFrame,
 def _extract_fiscal_year(content: str) -> Optional[str]:
     """
     実際のXBRLデータ形式に対応した会計年度抽出
-    
+
     例: "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
     """
     # パターン1: 日付範囲から西暦を抽出
-    pattern_date_range = r'自\s*(\d{4})年.*?至\s*(\d{4})年'
+    pattern_date_range = r"自\s*(\d{4})年.*?至\s*(\d{4})年"
     match_date = re.search(pattern_date_range, content)
     if match_date:
-        start_year = int(match_date.group(1))
+        # start_year = int(match_date.group(1))
         end_year = int(match_date.group(2))
         # 通常、会計年度は終了年度を使用
         return str(end_year)
 
     # パターン2: 単純な4桁年度パターン
-    pattern_year = r'(\d{4})'
+    pattern_year = r"(\d{4})"
     match_year = re.search(pattern_year, content)
     if match_year:
         year_str = match_year.group(1)
@@ -496,10 +502,10 @@ def _extract_fiscal_year(content: str) -> Optional[str]:
 def _extract_quarter_type(content: str) -> Optional[str]:
     """
     実際のXBRLデータ形式に対応した四半期抽出
-    
+
     例: "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
     """
-    pattern_quarter = r'第\s*([0-4０-４一二三四１２３４]+)\s*四半期'
+    pattern_quarter = r"第\s*([0-4０-４一二三四１２３４]+)\s*四半期"
     match_quarter = re.search(pattern_quarter, content)
 
     if match_quarter is None:
@@ -512,25 +518,35 @@ def _extract_quarter_type(content: str) -> Optional[str]:
     if quarter_num is not None and 1 <= quarter_num <= 4:
         return f"Q{quarter_num}"
     else:
-        logger.warning("四半期の変換に失敗しました: '%s' (content: '%s')",
-                      quarter_text, content)
+        logger.warning(
+            "四半期の変換に失敗しました: '%s' (content: '%s')", quarter_text, content
+        )
         return None
 
 
 def _convert_quarter_to_number(quarter_text: str) -> Optional[int]:
     """
     抽出した四半期文字列を数値型に変換するヘルパー関数
-    
+
     Args:
         quarter_text (str): 四半期を表す文字列（漢数字、全角数字、半角数字）
-        
+
     Returns:
         Optional[int]: 変換された四半期番号（1-4）。変換できない場合はNone。
     """
     to_number_mapping = {
-        "一": 1, "二": 2, "三": 3, "四": 4,
-        "１": 1, "２": 2, "３": 3, "４": 4,  # 全角数字
-        "1": 1, "2": 2, "3": 3, "4": 4      # 半角数字
+        "一": 1,
+        "二": 2,
+        "三": 3,
+        "四": 4,
+        "１": 1,
+        "２": 2,
+        "３": 3,
+        "４": 4,  # 全角数字
+        "1": 1,
+        "2": 2,
+        "3": 3,
+        "4": 4,  # 半角数字
     }
 
     if quarter_text in to_number_mapping:
@@ -545,8 +561,9 @@ def _convert_quarter_to_number(quarter_text: str) -> Optional[int]:
         return None
 
 
-def _financial_data_mapping(source_df: pd.DataFrame, report_id: int,
-                            item_id_map: dict[str, int]) -> list[dict]:
+def _financial_data_mapping(
+    source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]
+) -> list[dict]:
     """
     DataFrameの財務データ行を走査し、Financial_dataモデル用の辞書リストに変換する。
 
@@ -584,10 +601,10 @@ def map_data_to_models(df) -> dict:
 
     df = standardize_raw_data(df)
     df = _company_mapping(df)
-    df = _financial_report_mapping(df, df['company_id'])
+    df = _financial_report_mapping(df, df["company_id"])
     item_id_map = _financial_item_mapping(df)
-    #TODO DBの’Financial_item’にアクセスし、既に登録済みの内容と作成したマップの重複確認
-    df = _financial_data_mapping(df, df['report_id'], item_id_map)
+    # TODO DBの’Financial_item’にアクセスし、既に登録済みの内容と作成したマップの重複確認
+    df = _financial_data_mapping(df, df["report_id"], item_id_map)
     """
     model_data_map = {
         ["Company"]: _company_mapping(df),
@@ -597,32 +614,3 @@ def map_data_to_models(df) -> dict:
     }
     """
     return df
-
-def save_financial_bundle(df: pd.DataFrame) -> bool:
-    """
-    財務データDataFrameを前処理し、各モデルに対応するデータをDBに保存する関数。
-
-    Args:
-        df: pd.DataFrame CSVから変換して作成した企業ごとの財務データ
-
-    Return:
-        bool: DBへの保存処理の成否
-    """
-    try:
-        processed_df = standardize_raw_data(df)
-
-        # 2. 縦持ちデータを各モデル用の辞書リストにマッピング
-        model_data_map = map_data_to_models(processed_df)
-
-        # 3. トランザクション内で各モデルのデータをDBに挿入
-        db.insert(Company,model_data_map["Company"])
-        db.insert(Financial_report ,model_data_map["Financial_report"])
-        db.insert(Financial_item,model_data_map["Financial_item"])
-        db.insert(Financial_data,model_data_map["Financial_data"])
-
-        logger.info("財務データのDB登録に成功しました。")
-        return True
-
-    except Exception as e:
-        logger.error("財務データのDB登録に失敗しました: %s", e)
-        return False
