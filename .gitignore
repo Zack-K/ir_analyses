@@ -64,7 +64,7 @@ claude.md
 # Distribution / packaging
 dist/
 build/
-*.egg-info
+*.egg-info/
 requirements.lock
 
 # その他
