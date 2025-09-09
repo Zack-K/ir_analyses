@@ -61,8 +61,7 @@ claude.md
 .env
 
 # 仮想環境関連の不要ファイル
-*.egg-info/
-requirements.txt
+ir_analyses.egg-info/
 requirements.lock
 
 # その他

@@ -10,3 +10,4 @@ ruff
 sqlalchemy
 pytest
 numpy
+python-dotenv
