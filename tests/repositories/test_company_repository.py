@@ -1,7 +1,9 @@
 """
 BaseRepositoryの基本機能と、CompanyRepository固有の機能の両方をテストします。
 
-
+```Docker内部でのテスト実行コマンド
+$ docker compose exec streamlit_app pytest tests/repositories/test_company_repository.py
+```
 """
 
 import os
