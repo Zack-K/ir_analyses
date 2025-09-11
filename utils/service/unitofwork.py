@@ -1,27 +1,11 @@
-"""
-財務関連のビジネスロジックを担うサービス層のモジュール。
+"""Unit of Work パターンを実装するためのモジュール。
 
-このモジュールは、アプリケーションの主要なユースケースを実装する`FinancialService`
-クラス（および関連するDTO）を提供します。3層アーキテクチャにおけるビジネスロジック層
-として、プレゼンテーション層（UI）とデータアクセス層（Repository）を分離する役割を
-担います。
+このモジュールは、データアクセスとトランザクション管理の責務をカプセル化
+するための、抽象的な `UnitOfWork` インターフェースと、SQLAlchemyを
+利用した具象クラス `SqlAlchemyUnitOfWork` を提供します。
 
-主な責務:
-  - アプリケーション固有のビジネスロジックの実行（財務指標の計算など）
-  - Unit of Workを通じたデータ永続化の調整とトランザクション管理
-  - DBモデルからプレゼンテーション層向けのDTOへのデータ変換
-
-依存関係:
-  - このモジュールのクラスは、データアクセスとトランザクション管理のために
-    `uow.UnitOfWork`に依存します。
-
-Example:
-    uow = UnitOfWork(session_factory)
-    financial_service = FinancialService(uow)
-    with uow:
-        summary_dto = financial_service.get_financial_summary("E12345")
-        # uowブロックを抜ける際に、例外がなければ自動的にコミットされる
-
+Service層は、このモジュールが提供するUnit of Workを通じて、
+データベースとの対話を安全かつ一貫性のある形で行います。
 """
 import logging
 from abc import ABC, abstractmethod
