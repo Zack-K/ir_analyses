@@ -1,8 +1,6 @@
 # リファクタリング作業順序ガイド
 
-> **注意：このファイルは「IR分析プロジェクト 完成版ロードマップ・設計方針（統合版）」と同じ現行方針に基づいています。重複・古い設計ではなく、現行設計の補足・実装ガイドとして活用するため、`old`フォルダに移動しないでください。今後もdocuments配下で管理してください。**
-
-提示された3つのドキュメント（`api_refactoring_guide.md`, `app_refactoring_guide.md`, `db_and_sqlalchemy_review.md`）を精査し、リファクタリングの理想的な作業順序を提案します。
+> 本ロードマップは、プロジェクト憲章（`gemini.md`）で定義された原則に基づき、具体的な作業手順を定義するものです。
 
 これらのドキュメントは、現状の課題を解決し、アプリケーションをモダンで保守性の高い3層アーキテクチャ（View, Service, Repository）へと進化させるための、一貫した計画を示しています。
 
@@ -55,10 +53,11 @@ Repositoryが整ったので、それらを利用してビジネスロジック�
     *   - `Unit of Work`パターンを導入し、複数のDB操作を伴うビジネスロジックとトランザクション管理をService層から利用できるようにする。
     *   `api.py` の責務を「データマッピング」に限定し、見通しを良くする。
 *   **具体的な作業**:
-    1.  `utils/` 配下に `services` ディレクトリを新設します。
-    2.  `FinancialService` クラスを作成し、`save_financial_bundle` に相当するメソッドを実装します。このメソッド内でRepositoryを呼び出し、一連の永続化処理を単一トランザクションで実行します。
-    3.  `utils/api.py` をリファクタリングし、`_..._mapping` 関数群が辞書ではなくSQLAlchemyモデルオブジェクトを返すように修正します。
-    4.  `api.py` の永続化処理を、`FinancialService` のメソッド呼び出しに置き換えます。
+    ~~1.  `utils/` 配下に `services` ディレクトリを新設します。~~
+    ~~2. `unitofwork`クラスを作成し、Unit of Workパターンの実装を行います。~~ 
+    3. `FinancialService` クラスを作成し、`save_financial_bundle` に相当するメソッドを実装します。このメソッド内でRepositoryを呼び出し、一連の永続化処理を単一トランザクションで実行します。
+    4.  `utils/api.py` をリファクタリングし、`_..._mapping` 関数群が辞書ではなくSQLAlchemyモデルオブジェクトを返すように修正します。
+    5.  `api.py` の永続化処理を、`FinancialService` のメソッド呼び出しに置き換えます。
 *   **主参照ガイド**: `old/api_refactoring_guide.md`
 
 
