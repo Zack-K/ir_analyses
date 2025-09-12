@@ -20,11 +20,10 @@ Example:
         # `with`ブロックを抜ける際に、uowが自動的にトランザクションを管理する
 
 """
-from typing import Literal, List, Tuple
+from typing import Literal, List, Tuple, Optional
 from dataclasses import dataclass
 
 import utils.service.unitofwork as uow
-from utils.repositories.company_repository import CompanyRepository
 
 
 @dataclass
@@ -53,7 +52,7 @@ class FinancialService:
         self.uow = uow
 
     # step2. データ取得処理 get_financial_summaryを定義する
-    def get_financial_summary(self,company_name:str, FinancialSummaryDTO) -> FinancialSummaryDTO:
+    def get_financial_summary(self, edinet_code:str) -> Optional[FinancialSummaryDTO] | None:
         """
         責務：
             1. 企業情報の取得
@@ -62,9 +61,17 @@ class FinancialService:
             4. ビジネスロジック（利益率計算）の実行
             5. DTOへのマッピングと返却
         """
-        # 1.企業情報の取得 
-        # 2. 財務報告の特定　UIから選択された企業名を取得
-        # 3. 主要財務データを取得　repositoryに企業名を渡してデータ取得
+        # 1.企業情報の取得
+        # 2. 財務報告の特定　UIから選択された企業名をedinet_codeから取得
+        # 3. 主要財務データを取得　repositoryにedinet_codeを渡してデータ取得
+        with self.uow:
+            company_info = self.uow.companies.find_by_edinet_code(edinet_code) 
+            if company_info is None:
+                return None
+            
+            financial_report = self.uow.financial_reports.find_by_company_id(company_info.company_id)
+        
+            #financial_data = self.uow.financial_data.find_by_series_by_company_and_time(company_info.company_id, item_id)
         # 4. ビジネスロジックの計算　app.pyの計算ロジックを移植してDTOに合わせて修正
         # 5.DTOマッピングと返却　初期化後にビジネスロジックで計算した内容を渡す
         dto = FinancialSummaryDTO()

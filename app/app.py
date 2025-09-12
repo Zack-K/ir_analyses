@@ -11,6 +11,11 @@ import matplotlib.pyplot as pt
 import pandas as pd
 import streamlit as st
 
+from sqlalchemy.orm import sessionmaker
+
+from utils.service.financial_service import FinancialService
+import utils.service.unitofwork as uow
+
 # 環境対応型パス設定（Streamlitベストプラクティス）
 project_root = Path(__file__).parent.parent
 if str(project_root) not in sys.path:
@@ -86,25 +91,31 @@ config = load_config()
 #    - 各種利益率の推移（売上高利益率、売上高経常利益率、売上高純利益率）
 
 # セレクトボックス用のリスト
-path_list = {
-    "信越ポリマー株式会社": "./download/S100SSIM/XBRL_TO_CSV/jpcrp040300-q3r-001_E02388-000_2023-12-31_01_2024-02-09.csv",
-    "株式会社トーアミ": "./download/S100SSHR/XBRL_TO_CSV/jpcrp040300-q3r-001_E01441-000_2023-12-31_01_2024-02-09.csv",
-    "四国電力株式会社": "./download/S100SSMQ/XBRL_TO_CSV/jpcrp040300-q3r-001_E04505-000_2023-12-31_01_2024-02-09.csv",
-}
+engine = st.connection("sql", type="sql").engine
+SessionFactory = sessionmaker(bind=engine)
+uow_instance = uow.SqlAlchemyUnitOfWork(SessionFactory)
+financial_service = FinancialService(uow_instance)
+company_list = financial_service.get_company_selection_list()
 
+# 辞書型に変換してキーに企業名とEDINETコードを設定したい
+company_dict = {name: code for name, code in company_list}
 
 # TODO 最終的にここはDBから値を取得して企業名を絞り込む時に使うため変更予定
-selected_company = st.sidebar.selectbox("Choose Company", list(path_list.keys()))
+selected_company = st.sidebar.selectbox("Choose Company", list(company_dict.keys()))
 
-path = path_list[selected_company]
+edinet_code = company_dict[selected_company]
 
-with open(path, "rb") as f:
-    raw_data = f.read()
-    result = chardet.detect(raw_data)
-    encoding = result["encoding"]
-    logger.info("Detected encoding: %s", encoding)
+financial_summary = pd.DataFrame(financial_service.get_financial_summary(edinet_code))
 
-df = pd.read_csv(path, encoding=encoding, delimiter="\t")
+# path = path_list[selected_company]
+
+# with open(path, "rb") as f:
+#    raw_data = f.read()
+#    result = chardet.detect(raw_data)
+#    encoding = result["encoding"]
+#    logger.info("Detected encoding: %s", encoding)
+
+#df = pd.read_csv(path, encoding=encoding, delimiter="\t")
 
 standardize_df = api.standardize_raw_data(df)
 
