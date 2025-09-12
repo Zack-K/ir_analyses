@@ -2,7 +2,7 @@
 BaseRepositoryの基本機能と、CompanyRepository固有の機能の両方をテストします。
 
 ```Docker内部でのテスト実行コマンド
-$ docker compose exec streamlit_app pytest tests/repositories/test_repositories.py
+$ docker compose exec streamlit_app pytest ./tests/repositories/test_company_repository.py
 ```
 """
 
@@ -90,9 +90,10 @@ def test_get_all_company_names_and_edinet_code(db_session, company_data, company
     company_names = repo.get_all_company_names_and_edinet_code()
     expected_result = {
         (company_data.company_name, company_data.edinet_code),
-        (company_data2.company_name, company_data2.edinet_code)
+        (company_data2.company_name, company_data2.edinet_code),
     }  # setにして順不同を考慮
     assert set(company_names) == expected_result
+
 
 def test_find_by_edinet_code(db_session, company_data):
     repo = CompanyRepository(db_session)
@@ -101,6 +102,7 @@ def test_find_by_edinet_code(db_session, company_data):
     find_result_company = repo.find_by_edinet_code(company_data.edinet_code)
     expected_result = company_data
     assert expected_result == find_result_company
+
 
 def test_delete_company(db_session, company_data):
     """Companyの削除をテストします。"""
