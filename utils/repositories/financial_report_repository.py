@@ -15,7 +15,7 @@ class FinancialReportRepository(BaseRepository[Financial_report]):
         super().__init__(session, Financial_report)
 
 
-    def find_by_company_id(self, company_id:int) -> list[Financial_report]:
-        statement = select(Financial_report).where(Financial_report.company_id == company_id)
-        result = self.session.scalars(statement).all()
+    def find_latest_by_company_id(self, company_id:int) -> Financial_report | None:
+        statement = select(Financial_report).where(Financial_report.company_id == company_id).order_by(Financial_report.fiscal_year.desc())
+        result = self.session.scalars(statement).first()
         return result
