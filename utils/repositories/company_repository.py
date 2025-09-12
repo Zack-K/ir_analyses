@@ -23,3 +23,8 @@ class CompanyRepository(BaseRepository[Company]):
         ).all()
 
         return [tuple(row) for row in result_rows]
+
+    def find_by_edinet_code(self, edinet_code:str) -> Company | None:
+        statement = select(Company).where(Company.edinet_code == edinet_code)
+        result = self.session.scalars(statement).first()
+        return result

@@ -87,13 +87,20 @@ def test_get_all_company_names_and_edinet_code(db_session, company_data, company
     repo.add(company_data)
     repo.add(company_data2)
     db_session.commit()  # トランザクションをコミットしてDBに反映
-    company_names = repo.get_all_company_names()
+    company_names = repo.get_all_company_names_and_edinet_code()
     expected_result = {
         (company_data.company_name, company_data.edinet_code),
         (company_data2.company_name, company_data2.edinet_code)
     }  # setにして順不同を考慮
     assert set(company_names) == expected_result
 
+def test_find_by_edinet_code(db_session, company_data):
+    repo = CompanyRepository(db_session)
+    repo.add(company_data)
+    db_session.commit()
+    find_result_company = repo.find_by_edinet_code(company_data.edinet_code)
+    expected_result = company_data
+    assert expected_result == find_result_company
 
 def test_delete_company(db_session, company_data):
     """Companyの削除をテストします。"""
@@ -139,5 +146,5 @@ def test_get_not_found_company(db_session):
 def test_get_all_empty(db_session):
     """Companyが一件も登録されていない場合、空リストが返ることを確認します。"""
     repo = CompanyRepository(db_session)
-    company_names = repo.get_all_company_names()
+    company_names = repo.get_all_company_names_and_edinet_code()
     assert company_names == []
