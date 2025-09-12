@@ -20,10 +20,11 @@ Example:
         # `with`ブロックを抜ける際に、uowが自動的にトランザクションを管理する
 
 """
-from typing import Literal
+from typing import Literal, List, Tuple
 from dataclasses import dataclass
 
 import utils.service.unitofwork as uow
+from utils.repositories.company_repository import CompanyRepository
 
 
 @dataclass
@@ -52,3 +53,28 @@ class FinancialService:
         self.uow = uow
 
     # step2. データ取得処理 get_financial_summaryを定義する
+    def get_financial_summary(self,company_name:str, FinancialSummaryDTO) -> FinancialSummaryDTO:
+        """
+        責務：
+            1. 企業情報の取得
+            2. 財務報告の特定
+            3. 主要財務データの取得
+            4. ビジネスロジック（利益率計算）の実行
+            5. DTOへのマッピングと返却
+        """
+        # 1.企業情報の取得 
+        # 2. 財務報告の特定　UIから選択された企業名を取得
+        # 3. 主要財務データを取得　repositoryに企業名を渡してデータ取得
+        # 4. ビジネスロジックの計算　app.pyの計算ロジックを移植してDTOに合わせて修正
+        # 5.DTOマッピングと返却　初期化後にビジネスロジックで計算した内容を渡す
+        dto = FinancialSummaryDTO()
+
+        return dto
+
+    def get_company_selection_list(self) -> List[Tuple[str, str]]:
+        """UIに企業名セレクションリストを渡すために担当リポジトリクラスに依頼するメソッド"""
+        # リポジトリの初期化
+        with self.uow:
+            # 担当リポジトリクラスへのデータ取得依頼
+            company_selection_list = self.uow.companies.get_all_company_names_and_edinet_code()
+        return company_selection_list
