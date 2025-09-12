@@ -55,7 +55,6 @@ package-lock.json
 *.backup
 
 # claude code/Gemini関連
-gemini.md
 claude.md
 
 # プロジェクト用環境変数
