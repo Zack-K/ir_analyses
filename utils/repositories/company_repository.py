@@ -4,6 +4,7 @@ Companyモデルのためのリポジトリクラス。
 Companyモデルに特化したデータアクセスロジックを提供します。
 """
 
+from typing import List, Tuple
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 
@@ -15,5 +16,10 @@ class CompanyRepository(BaseRepository[Company]):
     def __init__(self, session: Session):
         super().__init__(session, Company)
 
-    def get_all_company_names(self) -> list[str]:
-        return list(self.session.scalars(select(Company.company_name)).all())
+    def get_all_company_names(self) -> List[Tuple[str, str]]:
+        """すべての企業名とそのEDINETコードを取得する"""
+        result_rows = self.session.execute(
+            select(Company.company_name, Company.edinet_code)
+        ).all()
+
+        return [tuple(row) for row in result_rows]

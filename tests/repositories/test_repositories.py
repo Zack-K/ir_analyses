@@ -2,7 +2,7 @@
 BaseRepositoryの基本機能と、CompanyRepository固有の機能の両方をテストします。
 
 ```Docker内部でのテスト実行コマンド
-$ docker compose exec streamlit_app pytest tests/repositories/test_company_repository.py
+$ docker compose exec streamlit_app pytest tests/repositories/test_repositories.py
 ```
 """
 
@@ -81,7 +81,7 @@ def test_add_and_get_company(db_session, company_data):
     assert retrieved_company.company_name == company_data.company_name
 
 
-def test_get_all_company_names(db_session, company_data, company_data2):
+def test_get_all_company_names_and_edinet_code(db_session, company_data, company_data2):
     """全てのCompany名を取得するテストを行います。"""
     repo = CompanyRepository(db_session)
     repo.add(company_data)
@@ -89,8 +89,8 @@ def test_get_all_company_names(db_session, company_data, company_data2):
     db_session.commit()  # トランザクションをコミットしてDBに反映
     company_names = repo.get_all_company_names()
     expected_result = {
-        company_data.company_name,
-        company_data2.company_name,
+        (company_data.company_name, company_data.edinet_code),
+        (company_data2.company_name, company_data2.edinet_code)
     }  # setにして順不同を考慮
     assert set(company_names) == expected_result
 
