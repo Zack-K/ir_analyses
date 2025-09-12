@@ -69,7 +69,7 @@ class FinancialService:
             if company_info is None:
                 return None
             
-            financial_report = self.uow.financial_reports.find_by_company_id(company_info.company_id)
+            financial_report = self.uow.financial_reports.find_latest_by_company_id(company_info.company_id)
         
             #financial_data = self.uow.financial_data.find_by_series_by_company_and_time(company_info.company_id, item_id)
         # 4. ビジネスロジックの計算　app.pyの計算ロジックを移植してDTOに合わせて修正
