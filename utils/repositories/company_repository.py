@@ -16,7 +16,7 @@ class CompanyRepository(BaseRepository[Company]):
     def __init__(self, session: Session):
         super().__init__(session, Company)
 
-    def get_all_company_names(self) -> List[Tuple[str, str]]:
+    def get_all_company_names_and_edinet_code(self) -> List[Tuple[str, str]]:
         """すべての企業名とそのEDINETコードを取得する"""
         result_rows = self.session.execute(
             select(Company.company_name, Company.edinet_code)
