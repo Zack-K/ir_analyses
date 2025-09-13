@@ -1,3 +1,11 @@
+"""
+FinancialReportRepository固有の機能の両方をテストします。
+
+```Docker内部でのテスト実行コマンド
+$ docker compose exec streamlit_app pytest ./tests/repositories/test_financial_report_repository.py
+```
+"""
+
 import os
 from dotenv import load_dotenv
 import pytest
@@ -69,6 +77,7 @@ def old_report_data(company_data):
     return financial_report
 
 def test_find_latest_by_company_id(db_session, company_data, latest_report_data, old_report_data):
+    """find_latest_by_company_idメソッドの正常系テスト"""
     # Arrenge
     repo = FinancialReportRepository(db_session)
     repo.add(company_data)
@@ -76,7 +85,6 @@ def test_find_latest_by_company_id(db_session, company_data, latest_report_data,
     repo.add(old_report_data)
     db_session.commit()
     # Act
-
     company_id = latest_report_data.company.company_id
     result = repo.find_latest_by_company_id(company_id)
     expected_result = latest_report_data
