@@ -98,7 +98,7 @@ class FinancialService:
             net_sales=data_map.get("売上高"),
             operating_income=data_map.get("営業利益"),
             ordinary_income=data_map.get("経常利益"),
-            net_income=data_map.get("当期純利益"),
+            net_income=data_map.get("純利益"),
             operation_profit_rate=None,
             ordinary_profit_rate=None,
             net_profit_rate=None,

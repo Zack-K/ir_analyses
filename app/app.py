@@ -68,17 +68,75 @@ def load_config():
 # 設定の読み込み
 config = load_config()
 
-# セレクトボックス用のリスト
+# セレクトボックス用データの取得
 engine = st.connection("sql", type="sql").engine
 SessionFactory = sessionmaker(bind=engine)
 uow_instance = uow.SqlAlchemyUnitOfWork(SessionFactory)
 financial_service = FinancialService(uow_instance)
 company_list = financial_service.get_company_selection_list()
 
-# 辞書型に変換してキーに企業名とEDINETコードを設定したい
+# 辞書型に変換してキーに企業名とEDINETコードを設定
 company_dict = {name: code for name, code in company_list}
 
-# TODO 最終的にここはDBから値を取得して企業名を絞り込む時に使うため変更予定
+# サイドバーにセレクトボックスを設定
 selected_company = st.sidebar.selectbox("Choose Company", list(company_dict.keys()))
 
+# サイドバーで選択した企業に対応するEDINET codeから財務データを取得
 edinet_code = company_dict[selected_company]
+financial_summary = financial_service.get_financial_summary(edinet_code)
+
+if financial_summary:
+    # TODO チャートにいれる具体的な計算結果やロジックは後ほど実装予定
+    st.header(financial_summary.company_name)
+    st.write(financial_summary.period_name)
+
+    # 各種利益率（今期）を3列表示
+    #TODO 過去の利益率を取得するメソッドを作成し st.metricのdeltaに入れて比較したい
+    col1, col2, col3 = st.columns(3)
+    col1.metric(
+        "売上高利益率",
+        f"{financial_summary.net_profit_rate:.2f}%"
+        if financial_summary.net_profit_rate is not None
+        else "N/A",
+    )
+    col2.metric(
+        "営業利益率",
+        f"{financial_summary.operation_profit_rate:.2f}%"
+        if financial_summary.operation_profit_rate is not None
+        else "N/A",
+    )
+    col3.metric(
+        "経常利益率",
+        f"{financial_summary.ordinary_profit_rate:.2f}%"
+        if financial_summary.ordinary_profit_rate is not None
+        else "N/A",
+    )
+
+    col4, col5 = st.columns(2)
+    col6, col7 = st.columns(2)
+    col4.metric(
+        "売上高",
+        f"{financial_summary.net_sales:,}"
+        if financial_summary.net_sales is not None
+        else "N/A",
+    )
+    col5.metric(
+        "営業利益",
+        f"{financial_summary.operating_income:,}"
+        if financial_summary.operating_income is not None
+        else "N/A",
+    )
+    col6.metric(
+        "経常利益",
+        f"{financial_summary.ordinary_income:,}"
+        if financial_summary.ordinary_income is not None
+        else "N/A",
+    )
+    col7.metric(
+        "純利益",
+        f"{financial_summary.net_income:,}"
+        if financial_summary.net_income is not None
+        else "N/A",
+    )
+else:
+    st.write("データが取得できませんでした。")
