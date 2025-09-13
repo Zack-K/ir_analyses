@@ -239,6 +239,7 @@ sequenceDiagram
 - Serviceレイヤー導入による責務分離
 - 企業選択の拡張（EDINETコード検索、DBから動的取得）
 - 単体テスト・例外処理・運用面の強化
+- **前期比較機能の実装**: UIに前期比（`st.metric`の`delta`など）を表示する。Service層に、今期と前期のデータを比較するロジックを追加し、`FinancialDataRepository`を拡張して、単一の財務報告から`context_id`（例: `CurrentYTDDuration`, `Prior1YTDDuration`）に基づいて今期・前期のデータを効率的に取得する。
 
 ---
 
