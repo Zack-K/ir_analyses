@@ -5,14 +5,13 @@ import logging
 import os
 import zipfile
 import glob
-import toml
 
 import chardet
 import pandas as pd
 import requests
 
-# 標準ロガーの取得
 logger = logging.getLogger(__name__)
+
 
 def get_api_key():
     """
@@ -43,7 +42,7 @@ def get_doc_id(sd_df: pd.DataFrame, company_name: str) -> str:
     return doc_id
 
 
-def get_company_list(submiting_date: str) -> pd.DataFrame | None:
+def get_company_list(submiting_date: str, config: dict) -> pd.DataFrame | None:
     """
     財務データの取得したい日付を受取り、その日付に提出された会社名を含むデータフレームを返却する
 
@@ -83,7 +82,7 @@ def get_company_list(submiting_date: str) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(sd_df: pd.DataFrame) -> dict:
+def fetch_financial_data(sd_df: pd.DataFrame, config: dict) -> dict:
     """
     財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
 

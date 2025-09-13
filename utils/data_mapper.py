@@ -1,15 +1,9 @@
-import os
-import toml
 import logging
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
 
-
-# 標準ロガーの取得
 logger = logging.getLogger(__name__)
-
-
 
 
 def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
@@ -102,7 +96,7 @@ def _get_value(
         return None
 
 
-def _company_mapping(source_df: pd.DataFrame) -> dict:
+def _company_mapping(source_df: pd.DataFrame, config: dict) -> dict:
     """
     source_dfから会社情報を抽出し、Companyモデルに対応するdictを作成する。
 
@@ -125,7 +119,7 @@ def _company_mapping(source_df: pd.DataFrame) -> dict:
         dict: DataFrameから抽出した`Company`モデルに対応する会社情報の辞書
     """
     try:
-        mapping_dict = config["xbrl_mapping"]["company"]
+        mapping_dict = config.get("xbrl_mapping", {}).get("company")
     except KeyError:
         logger.error(
             '設定ファイルに["xbrl_mapping"]["company"]の定義が見つかりません。'
@@ -208,7 +202,9 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     return return_df.to_dict("records")
 
 
-def _financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict:
+def _financial_report_mapping(
+    source_df: pd.DataFrame, company_id: int, config: dict
+) -> dict:
     """
     DataFrameから報告書情報を抽出し、Financial_reportモデル用の辞書を作成する。
 
@@ -231,7 +227,7 @@ def _financial_report_mapping(source_df: pd.DataFrame, company_id: int) -> dict:
         ValueError: 会計年度や四半期の文字列から値のパースに失敗した場合。
     """
     try:
-        mapping_dict = config["xbrl_mapping"]["financial_report"]
+        mapping_dict = config.get("xbrl_mapping", {}).get("financial_report")
     except KeyError:
         logger.error(
             '設定ファイルに["xbrl_mapping"]["financial_report"]の定義が見つかりません。'
@@ -400,14 +396,14 @@ def _financial_data_mapping(
     return financial_data_list
 
 
-def map_data_to_models(df) -> dict:
+def map_data_to_models(df: pd.DataFrame, config: dict) -> dict:
     """
     DBのモデルに対応する値をデータフレームから取得しマッピングする関数
     """
 
     df = standardize_raw_data(df)
-    df = _company_mapping(df)
-    df = _financial_report_mapping(df, df["company_id"])
+    df = _company_mapping(df, config)
+    df = _financial_report_mapping(df, df["company_id"], config)
     item_id_map = _financial_item_mapping(df)
     # TODO DBの’Financial_item’にアクセスし、既に登録済みの内容と作成したマップの重複確認
     df = _financial_data_mapping(df, df["report_id"], item_id_map)
