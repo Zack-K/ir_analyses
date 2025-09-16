@@ -55,9 +55,14 @@ Repositoryが整ったので、それらを利用してビジネスロジック�
 *   **具体的な作業**:
     ~~1.  `utils/` 配下に `services` ディレクトリを新設します。~~
     ~~2. `unitofwork`クラスを作成し、Unit of Workパターンの実装を行います。~~ 
-    3. `FinancialService` クラスを作成し、`save_financial_bundle` に相当するメソッドを実装します。このメソッド内でRepositoryを呼び出し、一連の永続化処理を単一トランザクションで実行します。
-    4.  `utils/api.py` をリファクタリングし、`_..._mapping` 関数群が辞書ではなくSQLAlchemyモデルオブジェクトを返すように修正します。
-    5.  `api.py` の永続化処理を、`FinancialService` のメソッド呼び出しに置き換えます。
+    3. `utils/parser.py` を新設し、`data_mapper.py` から日付・四半期解析のロジックを移植します。
+    4. `utils/data_mapper.py` の `map_data_to_models` 関数をリファクタリングし、各モデルのデータを一つの辞書にまとめて返すように責務を明確化します。
+    5. `FinancialService` クラスに `save_financial_bundle_from_dataframe` のようなデータ永続化メソッドを実装します。このメソッドは以下の責務を持ちます。
+        - `map_data_to_models` を呼び出して、DataFrameをモデルデータ辞書に変換する。
+        - `UnitOfWork` を通じてトランザクションを管理する。
+        - `FinancialItemRepository` を使って財務項目の存在をチェックし、存在しないものだけを登録する。
+        - 各Repositoryの `upsert` や `add` を呼び出し、一連のデータを永続化する。
+    6. `api.py` の永続化処理を、新しく作成した `FinancialService` のメソッド呼び出しに置き換えます。
 *   **主参照ガイド**: `old/api_refactoring_guide.md`
 
 
