@@ -275,7 +275,7 @@ def _financial_report_mapping(
     return financial_report_data
 
 
-def _financial_data_mapping(
+def financial_data_mapping(
     source_df: pd.DataFrame, report_id: int, item_id_map: dict[str, int]
 ) -> list[dict]:
     """
@@ -283,6 +283,8 @@ def _financial_data_mapping(
 
     この関数は、`standardize_raw_data`で処理済みのDataFrameと、永続化済みの
     `report_id`および`item_id_map`を基に、最終的な財務データを作成します。
+
+    item_idがDBで確定後にService層から呼び出し、実行が行われます。
 
     Args:
         source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
@@ -297,13 +299,27 @@ def _financial_data_mapping(
         パフォーマンスより可読性を優先し、行のループ処理を採用しています。
         データ量が極端に多い場合は、将来的にベクトル化などの最適化を検討する可能性があります。
     """
-    # TODO 財務データ行のフィルタリング
-    # TODO 結果をまとめたリストの初期化〜フィルタリングした行をループ処理
+
+    standardize_df = source_df[
+        source_df["element_id"].str.contains("jppfs_cor:", na=False)
+    ]
     financial_data_list = []
-    # TODO 各行をマッピング キーと値を紐づけ
-    financial_data_mapping = {}
-    # TODO マッピングした結果を結果リストに追加
-    financial_data_list.append(financial_data_mapping)
+
+    for index, row in standardize_df.iterrows():
+        data_dict = {
+            "report_id": report_id,
+            "item_id": item_id_map[row["element_id"]],
+            "duration_type": "Duration"
+            if "Duration" in row["context_id"]
+            else "Instant",
+            "context_id": row["context_id"],
+            "period_type": row["period_type"],
+            "consolidated_type": row["consolidated_type"],
+            "value": row["value"],
+            "value_text": row["value_text"],
+            "is_numeric": row["is_numeric"],
+        }
+        financial_data_list.append(data_dict)
 
     return financial_data_list
 
@@ -313,18 +329,15 @@ def map_data_to_models(df: pd.DataFrame, config: dict) -> dict:
     DBのモデルに対応する値をデータフレームから取得しマッピングする関数
     """
 
-    df = standardize_raw_data(df)
-    df = _company_mapping(df, config)
-    df = _financial_report_mapping(df, df["company_id"], config)
-    item_id_map = _financial_item_mapping(df)
-    # TODO DBの’Financial_item’にアクセスし、既に登録済みの内容と作成したマップの重複確認
-    df = _financial_data_mapping(df, df["report_id"], item_id_map)
-    """
-    model_data_map = {
-        ["Company"]: _company_mapping(df),
-        ["Financial_report"]: _financial_report_mapping(df),
-        ["Financial_item"]: _financial_item_mapping(df),
-        ["Financial_data"]: _financial_data_mapping(df)
+    standardize_df = standardize_raw_data(df)
+    company_dict = _company_mapping(standardize_df, config)
+    financial_report_dict = _financial_report_mapping(
+        standardize_df, company_dict["company_id"], config
+    )
+    financial_item_mapping_list = _financial_item_mapping(standardize_df)
+    mapping_data_bundle = {
+        "company": company_dict,
+        "report": financial_report_dict,
+        "items": financial_item_mapping_list,
     }
-    """
-    return df
+    return mapping_data_bundle
