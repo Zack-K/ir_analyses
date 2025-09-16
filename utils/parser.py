@@ -1,3 +1,9 @@
+"""
+テキスト解析に関連するヘルパー関数群を格納するモジュール。
+
+XBRLデータから特定の情報（会計年度、四半期など）を抽出するための、
+再利用可能な関数を提供します。
+"""
 import logging
 import re
 from typing import Optional
