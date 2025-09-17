@@ -82,62 +82,44 @@ def get_company_list(submiting_date: str, config: dict) -> pd.DataFrame | None:
         return None
 
 
-def fetch_financial_data(sd_df: pd.DataFrame, config: dict) -> dict:
-    """
-    財務データを企業ごとにフォルダーに分割、CSVデータをEDINET APIを通じてダウンロードする
+def fetch_single_company_dataframe(doc_id: str, config: dict) -> pd.DataFrame:
+    try:
+        API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD")
+        url = f"{API_DOWNLOAD}/documents/{doc_id}"
+        logger.info(url)
+        # EDINETの「書類取得API」に接続
+        respose = requests.get(
+            url,
+            {
+                "type": 5,  # 5:csv 2:pdfファイル
+                "Subscription-Key": get_api_key(),
+            },
+            timeout=30,
+        )
 
-    sd_df: pd.DataFrame 「書類一覧API」で取得したデータフレーム
+        # csvファイルをzipで送られてくるので、会社毎にファイルを作成して配置
+        logger.info(respose)
+        with zipfile.ZipFile(io.BytesIO(respose.content)) as z:
+            for file in z.namelist():
+                # TODO 現在は四半期報告書のみに対応、将来的に有価証券報告書にも対応させたい
+                if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
+                    z.extract(file, path=f"download/{doc_id}")
+                    logger.info("ファイルをダウンロードしました。: %s:%s ", doc_id)
+    except requests.exceptions.RequestException as e:
+        logger.error("リクエスト中にエラーが発生しました: %s", e)
+    except zipfile.BadZipFile as e:
+        logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
 
-    return company_financial_dataframe_dict
-    """
-    company_name_list = sd_df["filerName"]
-
-    os.makedirs("download", exist_ok=True)
-
-    for name in company_name_list:
-        doc_id = get_doc_id(sd_df, name)
-        try:
-            API_DOWNLOAD = config.get("edinetapi", {}).get("API_DOWNLOAD")
-            url = f"{API_DOWNLOAD}/documents/{doc_id}"
-            logger.info(url)
-            # EDINETの「書類取得API」に接続
-            respose = requests.get(
-                url,
-                {
-                    "type": 5,  # 5:csv 2:pdfファイル
-                    "Subscription-Key": get_api_key(),
-                },
-                timeout=30,
-            )
-
-            # csvファイルをzipで送られてくるので、会社毎にファイルを作成して配置
-            logger.info(respose)
-            with zipfile.ZipFile(io.BytesIO(respose.content)) as z:
-                for file in z.namelist():
-                    # TODO 現在は四半期報告書のみに対応、将来的に有価証券報告書にも対応させたい
-                    if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
-                        z.extract(file, path=f"download/{doc_id}")
-                        logger.info(
-                            "ファイルをダウンロードしました。: %s:%s ", name, doc_id
-                        )
-        except requests.exceptions.RequestException as e:
-            logger.error("リクエスト中にエラーが発生しました: %s", e)
-        except zipfile.BadZipFile as e:
-            logger.error("ZIPファイルの処理中にエラーが発生しました: %s", e)
-
-    for name in company_name_list:
-        doc_id = get_doc_id(sd_df, name)
-        csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
-        if not csvfile:
-            logger.error("CSVファイルが見つかりません: %s", doc_id)
-            continue
-        csv_file_path = csvfile[0]
-        logger.info(csv_file_path)
-        with open(csv_file_path, "rb") as f:
-            raw_data = f.read()
-            result = chardet.detect(raw_data)
-            encoding = result["encoding"]
-            logger.info("Detected encoding: %s", encoding)
+    csvfile = glob.glob(f"download/{doc_id}/XBRL_TO_CSV/*.csv")
+    if not csvfile:
+        logger.error("CSVファイルが見つかりません: %s", doc_id)
+    csv_file_path = csvfile[0]
+    logger.info(csv_file_path)
+    with open(csv_file_path, "rb") as f:
+        raw_data = f.read()
+        result = chardet.detect(raw_data)
+        encoding = result["encoding"]
+        logger.info("Detected encoding: %s", encoding)
 
         company_financial_dataframe = pd.read_csv(
             csv_file_path, encoding=encoding, delimiter="\t"
