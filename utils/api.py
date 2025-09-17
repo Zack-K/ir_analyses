@@ -28,12 +28,12 @@ def get_api_key():
 
 def get_doc_id(sd_df: pd.DataFrame, company_name: str) -> str:
     """
-    会社名を受取り、それに対応するdocuId(EDINETの書類ID)を返却する関数
+    会社名を受取り、それに対応するdocID(EDINETの書類ID)を返却する関数
 
     sd_df: pd.DataFrame 会社名とdocIDを含むデータフレーム EDINET「書類一覧API」の返却値
     company_name: str 会社名 sd_dfから値として抽出したもの
 
-    return: str 会社名と対応するdocId これを取得することで企業ごとの財務情報を取得可能
+    return: str 会社名と対応するdocID これを取得することで企業ごとの財務情報を取得可能
     """
     target_company = sd_df.loc[(sd_df["filerName"] == company_name)]
     if target_company.empty:
@@ -104,7 +104,7 @@ def fetch_single_company_dataframe(doc_id: str, config: dict) -> pd.DataFrame:
                 # TODO 現在は四半期報告書のみに対応、将来的に有価証券報告書にも対応させたい
                 if file.startswith("XBRL_TO_CSV/jpcrp") and file.endswith(".csv"):
                     z.extract(file, path=f"download/{doc_id}")
-                    logger.info("ファイルをダウンロードしました。: %s:%s ", doc_id)
+                    logger.info("ファイルをダウンロードしました。:%s", doc_id)
     except requests.exceptions.RequestException as e:
         logger.error("リクエスト中にエラーが発生しました: %s", e)
     except zipfile.BadZipFile as e:
