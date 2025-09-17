@@ -1,6 +1,6 @@
 import os
 import sys
-
+import logging
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -8,6 +8,15 @@ from utils.api import get_company_list, fetch_single_company_dataframe
 from utils.service.unitofwork import SqlAlchemyUnitOfWork
 from utils.service.financial_service import FinancialService
 from utils.config_loader import ConfigLoader
+
+"""
+データインポート用スクリプト
+$ docker compose exec data_processor env PYTHONPATH=/app python /scripts/import_financial_data.py YYYY-MM-DD
+"""
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
