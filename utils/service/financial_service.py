@@ -23,8 +23,11 @@ Example:
 
 from typing import Literal, List, Tuple, Optional
 from dataclasses import dataclass
+import pandas as pd
 
 import utils.service.unitofwork as uow
+import utils.data_mapper as data_mapper
+from utils.db_models import Company, Financial_item, Financial_report, Financial_data
 
 
 @dataclass
@@ -124,3 +127,46 @@ class FinancialService:
                 self.uow.companies.get_all_company_names_and_edinet_code()
             )
         return company_selection_list
+
+    def save_financial_data_from_dataframe(self, df: pd.DataFrame, config: dict):
+        # 1. data_mapperを呼び出し変数に格納する
+        model_data_bundle = data_mapper.map_data_to_models(df, config)
+        # 2. unit of workを呼び出し、トランザクションの開始
+        with self.uow:
+            # 3. Companyオブジェクトに辞書を保存、テーブルにデータを登録
+            company_data = model_data_bundle["company"]
+            company = Company(**company_data)
+            self.uow.companies.upsert(company)
+            company_id = company.company_id
+
+            # 4. Financial_itemのリストの存在チェックと登録処理
+            for financial_item in model_data_bundle["items"]:
+                if (
+                    self.uow.financial_items.find_by_element_id(
+                        financial_item["element_id"]
+                    )
+                    is None
+                ):
+                    financial_item_data = Financial_item(**financial_item)
+                    self.uow.financial_items.add(financial_item_data)
+
+            # 5. Financial_itemからelement_idとitem_idのリストを作成してマッピング
+            element_ids = [item["element_id"] for item in model_data_bundle["items"]]
+            financial_items = self.uow.financial_items.find_by_element_ids(element_ids)
+            item_id_map = {
+                financial_item.element_id: financial_item.item_id
+                for financial_item in financial_items
+            }
+
+            # 6. Financial_reportの存在チェックと登録
+            model_data_bundle["report"].update({"company_id": company_id})
+            financial_report = Financial_report(**model_data_bundle["report"])
+            self.uow.financial_reports.upsert(financial_report)
+            # 7. Financial_dataをマッピングするため、data_mapperを呼び出し、対応メソッドを実行
+            financial_data_map = data_mapper.financial_data_mapping(
+                df, financial_report.report_id, item_id_map
+            )
+            # 8. Financial_dataにループ処理して登録処理
+            for register_data_dict in financial_data_map:
+                financial_data = Financial_data(**register_data_dict)
+                self.uow.financial_data.add(financial_data)
