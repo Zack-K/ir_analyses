@@ -90,9 +90,7 @@ def fetch_financial_data(sd_df: pd.DataFrame, config: dict) -> dict:
 
     return company_financial_dataframe_dict
     """
-    # TODO ひとまず、テスト用に2件のみ取得 最終的には全件取得して、DataframeごとDBに放り込む
-    company_name_list = sd_df["filerName"][:2]
-    # company_name_list = sd_df["filerName"]
+    company_name_list = sd_df["filerName"]
 
     os.makedirs("download", exist_ok=True)
 
