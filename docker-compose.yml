@@ -28,10 +28,9 @@ services:
   data_processor:
     build: .
     volumes:
-      - ./app:/app:ro
       - ./scripts:/scripts:ro
       - ./config:/config:ro
-      - ./utils:/utils:ro
+      - ./utils:/app/utils:ro
     depends_on:
       - db
     environment:
