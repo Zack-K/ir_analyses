@@ -27,10 +27,12 @@ services:
 
   data_processor:
     build: .
+    command: sleep infinity
     volumes:
       - ./scripts:/scripts:ro
-      - ./config:/config:ro
+      - ./config:/app/config:ro
       - ./utils:/app/utils:ro
+      - ./download:/download:ro
     depends_on:
       - db
     environment:
