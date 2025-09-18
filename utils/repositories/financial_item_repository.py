@@ -20,7 +20,7 @@ class FinancialItemRepository(BaseRepository[Financial_item]):
         statement = select(Financial_item).where(
             Financial_item.element_id == element_id
         )
-        result = self.session.scalars(statement).scalar_one_or_none()
+        result = self.session.scalars(statement).one_or_none()
         return result
 
     def find_by_element_ids(self, elemet_ids: List[str]) -> List[Financial_item]:
