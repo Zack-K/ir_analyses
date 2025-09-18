@@ -129,8 +129,9 @@ class FinancialService:
         return company_selection_list
 
     def save_financial_data_from_dataframe(self, df: pd.DataFrame, config: dict):
+        standarized_df = data_mapper.standardize_raw_data(df)
         # 1. data_mapperを呼び出し変数に格納する
-        model_data_bundle = data_mapper.map_data_to_models(df, config)
+        model_data_bundle = data_mapper.map_data_to_models(standarized_df, config)
         # 2. unit of workを呼び出し、トランザクションの開始
         with self.uow:
             # 3. Companyオブジェクトに辞書を保存、テーブルにデータを登録
@@ -164,7 +165,7 @@ class FinancialService:
             self.uow.financial_reports.upsert(financial_report)
             # 7. Financial_dataをマッピングするため、data_mapperを呼び出し、対応メソッドを実行
             financial_data_map = data_mapper.financial_data_mapping(
-                df, financial_report.report_id, item_id_map
+                standarized_df, financial_report.report_id, item_id_map
             )
             # 8. Financial_dataにループ処理して登録処理
             for register_data_dict in financial_data_map:
