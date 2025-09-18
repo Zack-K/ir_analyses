@@ -267,6 +267,8 @@ def _financial_report_mapping(source_df: pd.DataFrame, config: dict) -> dict:
         logger.error("四半期の抽出に失敗しました。処理を中断します。")
         raise ValueError(f"四半期の抽出に失敗しました: '{content}'")
 
+    # 不要になったキーワードを削除
+    financial_report_data.pop("fiscal_year_and_quarter")
     return financial_report_data
 
 
@@ -324,10 +326,9 @@ def map_data_to_models(df: pd.DataFrame, config: dict) -> dict:
     DBのモデルに対応する値をデータフレームから取得しマッピングする関数
     """
 
-    standardize_df = standardize_raw_data(df)
-    company_dict = _company_mapping(standardize_df, config)
-    financial_report_dict = _financial_report_mapping(standardize_df, config)
-    financial_item_mapping_list = _financial_item_mapping(standardize_df)
+    company_dict = _company_mapping(df, config)
+    financial_report_dict = _financial_report_mapping(df, config)
+    financial_item_mapping_list = _financial_item_mapping(df)
     mapping_data_bundle = {
         "company": company_dict,
         "report": financial_report_dict,
