@@ -40,7 +40,7 @@ if __name__ == "__main__":
     # db enginとsessionを作成し、uowをインスタンス化
     bs_url = os.environ.get("DATABASE_URL")
     engine = create_engine(bs_url)
-    session_factory = sessionmaker(bind=engine)
+    session_factory = sessionmaker(bind=engine, autoflush=True)
     uow = SqlAlchemyUnitOfWork(session_factory)
     # financialserviceもインスタンス化
     service = FinancialService(uow)
