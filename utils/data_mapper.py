@@ -85,7 +85,7 @@ def _get_value(
 
         target_row = extract_df.iloc[0]
         if target_row["is_numeric"]:
-            extract_value = target_row["value"]
+            extract_value = str(int(target_row["value"]))
             logger.info("element_idと一致する行から数値データを取得しました")
         else:
             extract_value = target_row["value_text"]
@@ -204,9 +204,7 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     return return_df.to_dict("records")
 
 
-def _financial_report_mapping(
-    source_df: pd.DataFrame, company_id: int, config: dict
-) -> dict:
+def _financial_report_mapping(source_df: pd.DataFrame, config: dict) -> dict:
     """
     DataFrameから報告書情報を抽出し、Financial_reportモデル用の辞書を作成する。
 
@@ -219,7 +217,6 @@ def _financial_report_mapping(
 
     Args:
         source_df (pd.DataFrame): `standardize_raw_data`で標準化済みのDataFrame。
-        company_id (int): この報告書が紐づく会社のID (`companies.company_id`)。
 
     Returns:
         dict: `Financial_report`モデルに対応する報告書情報の辞書。
@@ -240,8 +237,6 @@ def _financial_report_mapping(
         key: _get_value(source_df, element_id)
         for key, element_id in mapping_dict.items()
     }
-
-    financial_report_data["company_id"] = company_id
 
     # 会計年度と四半期情報を取得
     fiscal_year_and_quarter = financial_report_data.get("fiscal_year_and_quarter")
@@ -331,9 +326,7 @@ def map_data_to_models(df: pd.DataFrame, config: dict) -> dict:
 
     standardize_df = standardize_raw_data(df)
     company_dict = _company_mapping(standardize_df, config)
-    financial_report_dict = _financial_report_mapping(
-        standardize_df, company_dict["company_id"], config
-    )
+    financial_report_dict = _financial_report_mapping(standardize_df, config)
     financial_item_mapping_list = _financial_item_mapping(standardize_df)
     mapping_data_bundle = {
         "company": company_dict,
