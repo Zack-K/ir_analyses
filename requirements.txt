@@ -11,3 +11,4 @@ sqlalchemy
 pytest
 numpy
 python-dotenv
+pytest-mock
