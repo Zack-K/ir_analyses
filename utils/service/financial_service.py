@@ -136,8 +136,28 @@ class FinancialService:
         with self.uow:
             # 3. Companyオブジェクトに辞書を保存、テーブルにデータを登録
             company_data = model_data_bundle["company"]
-            company = Company(**company_data)
-            self.uow.companies.upsert(company)
+            company = self.uow.companies.find_by_edinet_code(
+                company_data["edinet_code"]
+            )
+            if company:
+                # データが存在する場合はupsert(更新)
+                company.edinet_code = company_data.get(
+                    "edinet_code", company.edinet_code
+                )
+                company.security_code = company_data.get(
+                    "security_code", company.security_code
+                )
+                company.industry_code = company_data.get(
+                    "industry_code", company.industry_code
+                )
+                company.company_name = company_data.get(
+                    "company_name", company.company_name
+                )
+            else:
+                # データが存在しない場合はadd(新規登録)としてオブジェクトを新規作成
+                company = Company(**company_data)
+                self.uow.companies.add(company)
+            self.uow.session.flush()
             company_id = company.company_id
 
             # 4. Financial_itemのリストの存在チェックと登録処理
@@ -150,7 +170,7 @@ class FinancialService:
                 ):
                     financial_item_data = Financial_item(**financial_item)
                     self.uow.financial_items.add(financial_item_data)
-
+            self.uow.session.flush()
             # 5. Financial_itemからelement_idとitem_idのリストを作成してマッピング
             element_ids = [item["element_id"] for item in model_data_bundle["items"]]
             financial_items = self.uow.financial_items.find_by_element_ids(element_ids)
@@ -162,7 +182,8 @@ class FinancialService:
             # 6. Financial_reportの存在チェックと登録
             model_data_bundle["report"].update({"company_id": company_id})
             financial_report = Financial_report(**model_data_bundle["report"])
-            self.uow.financial_reports.upsert(financial_report)
+            financial_report = self.uow.financial_reports.upsert(financial_report)
+            self.uow.session.flush()
             # 7. Financial_dataをマッピングするため、data_mapperを呼び出し、対応メソッドを実行
             financial_data_map = data_mapper.financial_data_mapping(
                 standarized_df, financial_report.report_id, item_id_map
