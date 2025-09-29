@@ -37,6 +37,7 @@ def standardize_raw_data(df: pd.DataFrame) -> pd.DataFrame:
     df_renamed = df.rename(columns=column_mapping)
 
     # 値のデータ型変換　文字＝＞数値, 文字データは別のカラムで保持
+    df_renamed["original_value"] = df_renamed["original_value"].str.replace("－", "")
     df_renamed["value"] = pd.to_numeric(df_renamed["original_value"], errors="coerce")
     # データ上、小数点が発生するものもあるため下二桁まで表示可能に設定
     pd.set_option("display.float_format", "{:,.2f}".format)
