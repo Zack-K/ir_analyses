@@ -179,7 +179,7 @@ class FinancialService:
                 for financial_item in financial_items
             }
 
-            # 6. Financial_reportの存在チェックと登録
+            # 6. Financial_reportの登録
             model_data_bundle["report"].update({"company_id": company_id})
             financial_report = Financial_report(**model_data_bundle["report"])
             financial_report = self.uow.financial_reports.upsert(financial_report)
