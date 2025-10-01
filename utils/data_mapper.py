@@ -313,8 +313,8 @@ def financial_data_mapping(
             "context_id": row["context_id"],
             "period_type": row["period_type"],
             "consolidated_type": row["consolidated_type"],
-            "value": row["value"],
-            "value_text": row["value_text"],
+            "value": None if pd.isna(row["value"]) else row["value"],
+            "value_text": None if pd.isna(row["value_text"]) else row["value_text"],
             "is_numeric": row["is_numeric"],
         }
         financial_data_list.append(data_dict)
