@@ -1,5 +1,6 @@
 """
 FinancialServiceの各メソッドの機能をテストします。
+$docker compose exec streamlit_app pytest ./tests/service/test_financial_service.py
 """
 
 import pytest
@@ -62,15 +63,14 @@ def test_save_financial_data_from_dataframe(mocker):
     mock_data_mapper.financial_data_mapping.return_value = dummy_financial_data
     # UnitOfWorkをモック化
     mock_uow = mocker.MagicMock()
-    mock_report = mocker.MagicMock()
-    mock_report.report_id = 1
+    mock_uow.financial_report.report_id = 1
     mock_item1 = mocker.MagicMock()
     mock_item1.item_id = 1
     mock_item1.element_id = "NetSales"
     list_of_items = [mock_item1]
 
     mock_uow.financial_items.find_by_element_ids.return_value = list_of_items
-    mock_uow.financial_reports.upsert.return_value = mock_report.report_id
+    mock_uow.financial_reports.upsert.return_value = mock_uow.financial_report
     # 新規登録シナリオのため、find系メソッドの結果に「見つからない（None）」を設定
     mock_uow.companies.find_by_edinet_code.return_value = None
     mock_uow.financial_items.find_by_element_id.return_value = None
@@ -81,6 +81,7 @@ def test_save_financial_data_from_dataframe(mocker):
     financial_service.save_financial_data_from_dataframe(dummy_input_df, dummy_config)
 
     # Then:検証
+    # どのメソッドが何回呼ばれているのかを確認
     mock_data_mapper.standardize_raw_data.assert_called_once()
     mock_data_mapper.map_data_to_models.assert_called_once()
     mock_uow.companies.add.assert_called_once()
@@ -89,3 +90,6 @@ def test_save_financial_data_from_dataframe(mocker):
     mock_uow.financial_reports.upsert.assert_called_once()
     mock_uow.financial_data.add.assert_called_once()
     assert mock_uow.session.flush.call_count == 3
+    
+    # どのようなデータでメソッドが呼ばれているのかを確認
+    
