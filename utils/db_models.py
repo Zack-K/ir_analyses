@@ -97,7 +97,7 @@ class Financial_data(Base):
     item_id = Column(
         Integer, ForeignKey("financial_items.item_id"), nullable=False, index=True
     )
-    context_id = Column(String(100), nullable=True)
+    context_id = Column(String(300), nullable=True)
     period_type = Column(String(50), nullable=False)
     consolidated_type = Column(String(10), nullable=False)
     duration_type = Column(String(10), nullable=False)

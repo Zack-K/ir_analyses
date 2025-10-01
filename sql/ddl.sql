@@ -221,7 +221,7 @@ CREATE TABLE public.financial_data (
 					data_id int8 GENERATED ALWAYS AS IDENTITY NOT NULL,     -- 主キー（自動採番、int8使用）
 					report_id int4 NOT NULL,                                -- 報告書ID（外部キー）
 					item_id int4 NOT NULL,                                  -- 項目ID（外部キー）
-					context_id varchar(100) NULL,                           -- XBRLコンテキストID
+					context_id varchar(300) NULL,                           -- XBRLコンテキストID
 					period_type varchar(50) NOT NULL,                       -- 期間種別（Duration/Instant）
 					consolidated_type varchar(10) NOT NULL,                 -- 連結種別（Consolidated/NonConsolidated）
 					duration_type varchar(10) NOT NULL,                     -- 期間タイプ（Year/Quarter等）
