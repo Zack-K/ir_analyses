@@ -40,16 +40,17 @@ if __name__ == "__main__":
     # db enginとsessionを作成し、uowをインスタンス化
     bs_url = os.environ.get("DATABASE_URL")
     engine = create_engine(bs_url)
-    session_factory = sessionmaker(bind=engine, autoflush=True)
-    uow = SqlAlchemyUnitOfWork(session_factory)
-    # financialserviceもインスタンス化
-    service = FinancialService(uow)
-
+    session_factory = sessionmaker(bind=engine, autoflush=False)
+ 
     # download配下にあるフォルダーを再帰的に確認、csvファイルをpd.DataFrameに変換
     download_list = glob.glob(f"{download_dir}/**/*.csv", recursive=True)
 
     # ループ処理内で、1件ずつデータ永続化処理を呼び出し
     for financial_data_csv in download_list:
+        uow = SqlAlchemyUnitOfWork(session_factory)
+        # financialserviceもインスタンス化
+        service = FinancialService(uow)
+
         with open(financial_data_csv, "rb") as f:
             raw_data = f.read()
             result = chardet.detect(raw_data)
