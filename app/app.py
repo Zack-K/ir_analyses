@@ -6,12 +6,10 @@ from pathlib import Path
 import toml
 import logging
 
-import matplotlib.pyplot as pt
-
-import pandas as pd
 import streamlit as st
 
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.engine.url import make_url
 
 from utils.service.financial_service import FinancialService
 import utils.service.unitofwork as uow
@@ -68,8 +66,25 @@ def load_config():
 # 設定の読み込み
 config = load_config()
 
+# db接続
+db_url = os.environ.get("DATABASE_URL")
+
+if db_url:
+    url_object = make_url(db_url)
+    db_connection_info = {
+        "dialect": url_object.drivername,
+        "host": url_object.host,
+        "port": url_object.port,
+        "database": url_object.database,
+        "username": url_object.username,
+        "password": url_object.password
+    }
+    engine = st.connection("sql", type="sql", **db_connection_info).engine
+else:
+    st.error("データベース接続URLが設定されていません。.envファイルを確認してください。")
+    st.stop()
+
 # セレクトボックス用データの取得
-engine = st.connection("sql", type="sql").engine
 SessionFactory = sessionmaker(bind=engine)
 uow_instance = uow.SqlAlchemyUnitOfWork(SessionFactory)
 financial_service = FinancialService(uow_instance)
