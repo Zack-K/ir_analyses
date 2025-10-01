@@ -90,22 +90,22 @@ class FinancialService:
                 financial_report.report_id, _SUMMARY_ITEMS
             )
 
-        # 4.DTOマッピング
-        data_map = {data.item.item_name: data.value for data in financial_data}
+            # 4.DTOマッピング
+            data_map = {data.item.item_name: data.value for data in financial_data}
 
-        dto = FinancialSummaryDTO(
-            company_name=company_info.company_name,
-            period_name=f"{financial_report.fiscal_year} {financial_report.quarter_type}",
-            fiscal_year=int(financial_report.fiscal_year),
-            quarter_type=financial_report.quarter_type,
-            net_sales=data_map.get("売上高"),
-            operating_income=data_map.get("営業利益"),
-            ordinary_income=data_map.get("経常利益"),
-            net_income=data_map.get("純利益"),
-            operation_profit_rate=None,
-            ordinary_profit_rate=None,
-            net_profit_rate=None,
-        )
+            dto = FinancialSummaryDTO(
+                company_name=company_info.company_name,
+                period_name=f"{financial_report.fiscal_year} {financial_report.quarter_type}",
+                fiscal_year=int(financial_report.fiscal_year),
+                quarter_type=financial_report.quarter_type,
+                net_sales=data_map.get("売上高"),
+                operating_income=data_map.get("営業利益"),
+                ordinary_income=data_map.get("経常利益"),
+                net_income=data_map.get("純利益"),
+                operation_profit_rate=None,
+                ordinary_profit_rate=None,
+                net_profit_rate=None,
+            )
         # 5. ビジネスロジック（利益率計算）の実行
         # 営業利益率
         if dto.operating_income and dto.net_sales and dto.net_sales != 0:
