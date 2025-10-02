@@ -50,8 +50,22 @@ class FinancialSummaryDTO:
     net_profit_rate: float | None
 
 
-# 主要財務項目リスト
-_SUMMARY_ITEMS = ["売上高", "営業利益", "経常利益", "当期純利益"]
+# 主要財務項目リスト ユニークなelement_idを指定する
+_SUMMARY_ITEMS = {
+    # 売上高
+    "NetSales": [
+        "jppfs_cor:NetSales",
+        "jppfs_cor:OperatingRevenue1",
+        "jppfs_cor:OperatingRevenueSEC",
+        "jpigp_cor:RevenueIFRS",
+    ],
+    # 営業利益
+    "OperationIncome": ["jppfs_cor:OperatingIncome"],
+    # 経常利益
+    "OrdinaryIncome": ["jppfs_cor:OrdinaryIncome"],
+    # 当期純利益
+    "Profit": ["jppfs_cor:ProfitLossAttributableToOwnersOfParent"],
+}
 
 
 class FinancialService:
@@ -85,23 +99,27 @@ class FinancialService:
             financial_report = self.uow.financial_reports.find_latest_by_company_id(
                 company_info.company_id
             )
-
-            financial_data = self.uow.financial_data.find_by_report_id_and_item_names(
-                financial_report.report_id, _SUMMARY_ITEMS
+            all_element_ids = [
+                element_id
+                for id_list in _SUMMARY_ITEMS.values()
+                for element_id in id_list
+            ]
+            financial_data = self.uow.financial_data.find_by_report_id_and_element_ids(
+                financial_report.report_id, all_element_ids
             )
 
             # 4.DTOマッピング
-            data_map = {data.item.item_name: data.value for data in financial_data}
+            data_map = {data.item.element_id: data.value for data in financial_data}
 
             dto = FinancialSummaryDTO(
                 company_name=company_info.company_name,
                 period_name=f"{financial_report.fiscal_year} {financial_report.quarter_type}",
                 fiscal_year=int(financial_report.fiscal_year),
                 quarter_type=financial_report.quarter_type,
-                net_sales=data_map.get("売上高"),
-                operating_income=data_map.get("営業利益"),
-                ordinary_income=data_map.get("経常利益"),
-                net_income=data_map.get("純利益"),
+                net_sales=data_map.get("NetSales")],
+                operating_income=data_map.get("OperationIncome"),
+                ordinary_income=data_map.get("OrdinaryIncome"),
+                net_income=data_map.get("Profit"),
                 operation_profit_rate=None,
                 ordinary_profit_rate=None,
                 net_profit_rate=None,
