@@ -72,6 +72,14 @@ class FinancialService:
     def __init__(self, uow: uow.UnitOfWork):
         self.uow = uow
 
+    def _get_value_from_candidates(
+        self, data_map: dict, condidates_list: list
+    ) -> int | None:
+        for conditate in condidates_list:
+            if conditate in data_map:
+                return data_map.get(conditate)
+        return None
+
     def get_financial_summary(
         self, edinet_code: str
     ) -> Optional[FinancialSummaryDTO] | None:
@@ -116,10 +124,18 @@ class FinancialService:
                 period_name=f"{financial_report.fiscal_year} {financial_report.quarter_type}",
                 fiscal_year=int(financial_report.fiscal_year),
                 quarter_type=financial_report.quarter_type,
-                net_sales=data_map.get("NetSales")],
-                operating_income=data_map.get("OperationIncome"),
-                ordinary_income=data_map.get("OrdinaryIncome"),
-                net_income=data_map.get("Profit"),
+                net_sales=self._get_value_from_candidates(
+                    data_map, _SUMMARY_ITEMS.get("NetSales")
+                ),
+                operating_income=self._get_value_from_candidates(
+                    data_map, _SUMMARY_ITEMS.get("OperationIncome")
+                ),
+                ordinary_income=self._get_value_from_candidates(
+                    data_map, _SUMMARY_ITEMS.get("OrdinaryIncome")
+                ),
+                net_income=self._get_value_from_candidates(
+                    data_map, _SUMMARY_ITEMS.get("Profit")
+                ),
                 operation_profit_rate=None,
                 ordinary_profit_rate=None,
                 net_profit_rate=None,
