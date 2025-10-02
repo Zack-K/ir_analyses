@@ -167,7 +167,7 @@ def _financial_item_mapping(source_df: pd.DataFrame) -> list[dict]:
     """
     # dfから財務項目行をフィルタリング
     financial_item_df = source_df[
-        source_df["element_id"].str.contains("jppfs_cor:", na=False)
+        source_df["element_id"].str.contains("jppfs_cor:|jpigp_cor:", na=False)
     ].copy()
 
     # 処理対象の行がなければ空のリストを返す
@@ -299,7 +299,7 @@ def financial_data_mapping(
     """
 
     standardize_df = source_df[
-        source_df["element_id"].str.contains("jppfs_cor:", na=False)
+        source_df["element_id"].str.contains("jppfs_cor:|jpigp_cor:", na=False)
     ]
     financial_data_list = []
 
