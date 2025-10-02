@@ -18,17 +18,17 @@ class FinancialDataRepository(BaseRepository[Financial_data]):
     def __init__(self, session: Session):
         super().__init__(session, Financial_data)
 
-    def find_by_report_id_and_item_names(
-        self, report_id: int, item_names: list[str]
+    def find_by_report_id_and_element_ids(
+        self, report_id: int, element_ids: list[str]
     ) -> List[Financial_data]:
         statement = (
             select(self.model)
             .join(Financial_item)
             .where(
                 self.model.report_id == report_id,
-                Financial_item.item_name.in_(
-                    item_names
-                ),  # 複数のitem_nameに対応できるようにin_を使用
+                Financial_item.element_id.in_(
+                    element_ids
+                ),  # 複数のelement_idに対応できるようにin_を使用
             )
         )
         result = self.session.scalars(statement).all()
