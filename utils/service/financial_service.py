@@ -60,11 +60,21 @@ _SUMMARY_ITEMS = {
         "jpigp_cor:RevenueIFRS",
     ],
     # 営業利益
-    "OperationIncome": ["jppfs_cor:OperatingIncome"],
+    "OperationIncome": [
+        "jppfs_cor:OperatingIncome",
+        "jpigp_cor:OperatingProfitLossIFRS"
+    ],
     # 経常利益
-    "OrdinaryIncome": ["jppfs_cor:OrdinaryIncome"],
+    "OrdinaryIncome": [
+        "jppfs_cor:OrdinaryIncome",
+        "jpigp_cor:ProfitLossBeforeTaxIFRS"
+    ],
     # 当期純利益
-    "Profit": ["jppfs_cor:ProfitLossAttributableToOwnersOfParent"],
+    "Profit": [
+        "jppfs_cor:ProfitLossAttributableToOwnersOfParent",
+        "jppfs_cor:ProfitLoss",
+        "jpigp_cor:ProfitLossAttributableToOwnersOfParentIFRS",
+    ],
 }
 
 
