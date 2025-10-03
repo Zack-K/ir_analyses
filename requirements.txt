@@ -12,3 +12,4 @@ pytest
 numpy
 python-dotenv
 pytest-mock
+altair

@@ -321,6 +321,7 @@ name = "ir-analyses"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "altair" },
     { name = "chardet" },
     { name = "matplotlib-fontja" },
     { name = "numpy" },
@@ -338,6 +339,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
+    { name = "altair", specifier = ">=5.5.0" },
     { name = "chardet" },
     { name = "matplotlib-fontja" },
     { name = "numpy" },
