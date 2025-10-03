@@ -62,13 +62,10 @@ _SUMMARY_ITEMS = {
     # 営業利益
     "OperationIncome": [
         "jppfs_cor:OperatingIncome",
-        "jpigp_cor:OperatingProfitLossIFRS"
+        "jpigp_cor:OperatingProfitLossIFRS",
     ],
     # 経常利益
-    "OrdinaryIncome": [
-        "jppfs_cor:OrdinaryIncome",
-        "jpigp_cor:ProfitLossBeforeTaxIFRS"
-    ],
+    "OrdinaryIncome": ["jppfs_cor:OrdinaryIncome", "jpigp_cor:ProfitLossBeforeTaxIFRS"],
     # 当期純利益
     "Profit": [
         "jppfs_cor:ProfitLossAttributableToOwnersOfParent",
@@ -160,6 +157,11 @@ class FinancialService:
         # 当期純利益率
         if dto.net_income and dto.net_sales and dto.net_sales != 0:
             dto.net_profit_rate = dto.net_income / dto.net_sales * 100
+        # 数字の桁を加工 100万円を基準に表示
+        dto.net_sales = dto.net_sales / 1000000
+        dto.operating_income = dto.operating_income / 1000000
+        dto.ordinary_income = dto.ordinary_income / 1000000
+        dto.net_income = dto.net_income / 1000000
         return dto
 
     def get_company_selection_list(self) -> List[Tuple[str, str]]:

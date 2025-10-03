@@ -4,6 +4,7 @@ import sys
 import os
 from pathlib import Path
 import toml
+import pandas as pd
 import logging
 
 import streamlit as st
@@ -77,11 +78,13 @@ if db_url:
         "port": url_object.port,
         "database": url_object.database,
         "username": url_object.username,
-        "password": url_object.password
+        "password": url_object.password,
     }
     engine = st.connection("sql", type="sql", **db_connection_info).engine
 else:
-    st.error("データベース接続URLが設定されていません。.envファイルを確認してください。")
+    st.error(
+        "データベース接続URLが設定されていません。.envファイルを確認してください。"
+    )
     st.stop()
 
 # セレクトボックス用データの取得
@@ -106,7 +109,7 @@ if financial_summary:
     st.write(financial_summary.period_name)
 
     # 各種利益率（今期）を3列表示
-    #TODO 過去の利益率を取得するメソッドを作成し st.metricのdeltaに入れて比較したい
+    # TODO 過去の利益率を取得するメソッドを作成し st.metricのdeltaに入れて比較したい
     col1, col2, col3 = st.columns(3)
     col1.metric(
         "売上高利益率",
@@ -130,25 +133,25 @@ if financial_summary:
     col4, col5 = st.columns(2)
     col6, col7 = st.columns(2)
     col4.metric(
-        "売上高",
+        "売上高(百万円)",
         f"{financial_summary.net_sales:,}"
         if financial_summary.net_sales is not None
         else "N/A",
     )
     col5.metric(
-        "営業利益",
+        "営業利益(百万円)",
         f"{financial_summary.operating_income:,}"
         if financial_summary.operating_income is not None
         else "N/A",
     )
     col6.metric(
-        "経常利益",
+        "経常利益(百万円)",
         f"{financial_summary.ordinary_income:,}"
         if financial_summary.ordinary_income is not None
         else "N/A",
     )
     col7.metric(
-        "純利益",
+        "純利益(百万円)",
         f"{financial_summary.net_income:,}"
         if financial_summary.net_income is not None
         else "N/A",
