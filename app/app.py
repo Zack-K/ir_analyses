@@ -6,6 +6,7 @@ from pathlib import Path
 import toml
 import pandas as pd
 import logging
+import altair as alt
 
 import streamlit as st
 
@@ -156,5 +157,32 @@ if financial_summary:
         if financial_summary.net_income is not None
         else "N/A",
     )
+
+    data = {
+        "売上高": financial_summary.net_sales,
+        "営業利益": financial_summary.operating_income,
+        "経常利益": financial_summary.ordinary_income,
+        "純利益": financial_summary.net_income,
+    }
+    source_df = pd.Series(data)
+
+    # DataFrameを2列のインデックスを持つ形に変換
+    chart_data = source_df.reset_index()
+    chart_data.columns = ["項目", "金額"]
+    chart_data["金額"] = chart_data["金額"].astype(float)
+
+    # 上記で作成した新規DataFrameをグラフ描画用に加工
+    chart = (
+        alt.Chart(chart_data)
+        .mark_bar()
+        .encode(
+            # X軸を「項目」列を設定
+            x=alt.X("項目", sort=None),
+            # Y軸を「金額」軸に設定し、スケールを「0から始める」ように設定
+            y=alt.Y("金額", scale=alt.Scale(zero=True)),
+        )
+    )
+
+    st.altair_chart(chart, use_container_width=True)
 else:
     st.write("データが取得できませんでした。")
