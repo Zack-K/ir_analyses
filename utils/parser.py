@@ -14,7 +14,12 @@ def extract_fiscal_year(content: str) -> Optional[str]:
     """
     実際のXBRLデータ形式に対応した会計年度抽出
 
-    例: "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
+    例: 
+    1. 西暦
+    "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
+    2. 和暦
+    '第52期第１四半期(自  令和５年10月21日  至  令和６年１月20日)'
+
     """
     # パターン1: 日付範囲から西暦を抽出
     pattern_date_range = r"自\s*(\d{4})年.*?至\s*(\d{4})年"
@@ -25,7 +30,8 @@ def extract_fiscal_year(content: str) -> Optional[str]:
         # 通常、会計年度は終了年度を使用
         return str(end_year)
 
-    # パターン2: 単純な4桁年度パターン
+    #TODOパターン2: 和暦を抽出し、変換
+    # パターン3: 単純な4桁年度パターン
     pattern_year = r"(\d{4})"
     match_year = re.search(pattern_year, content)
     if match_year:
