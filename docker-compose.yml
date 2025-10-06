@@ -35,8 +35,11 @@ services:
       - ./download:/download:ro
     depends_on:
       - db
+    env_file:
+      - .env
     environment:
       DATABASE_URL: postgresql://user:password@db:5432/mydatabase
+      EDINET_API_KEY: ${EDINET_API_KEY} # 環境変数でAPIキーを設定
     deploy:
       resources:
         limits:
