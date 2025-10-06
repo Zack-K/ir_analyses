@@ -5,8 +5,9 @@ XBRLデータから特定の情報（会計年度、四半期など）を抽出�
 再利用可能な関数を提供します。
 """
 import logging
+import unicodedata
 import re
-from typing import Optional
+from typing import Optional, Match
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,15 @@ def extract_fiscal_year(content: str) -> Optional[str]:
         # 通常、会計年度は終了年度を使用
         return str(end_year)
 
-    #TODOパターン2: 和暦を抽出し、変換
+    #パターン2: 和暦を抽出し、変換
+    pattern_japanese_year = r"自\s*令和(元|\d+|[０-９]+)年.*?至\s*令和(元|\d+|[０-９]+)年"
+    match_japanese_year = re.search(pattern_japanese_year, content)
+    if match_japanese_year:
+        match_japanese_year_end = str(match_japanese_year.group(2))
+        convert_result = _convert_japanese_year_to_number(match_japanese_year_end)
+        year_calcurate_result = 2019 + convert_result -1
+        return str(year_calcurate_result)
+
     # パターン3: 単純な4桁年度パターン
     pattern_year = r"(\d{4})"
     match_year = re.search(pattern_year, content)
@@ -43,6 +52,17 @@ def extract_fiscal_year(content: str) -> Optional[str]:
     logger.warning("会計年度の抽出に失敗しました: '%s'", content)
     return None
 
+
+def _convert_japanese_year_to_number(content:str) -> int:
+    """
+    和暦として送られてきたデータを西暦の数字に変換して返却
+    """
+    if content == "元":
+        return_value = 1
+        return return_value
+    else:
+        return_value = unicodedata.normalize('NFKC', content)
+        return int(return_value)
 
 def extract_quarter_type(content: str) -> Optional[str]:
     """
