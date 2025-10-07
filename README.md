@@ -88,11 +88,31 @@ cd ir_analyses
 ```
 
 ### 2. 環境変数の設定
-プロジェクトルートに`.env`ファイルを作成し、ご自身のEDINET APIキーを設定してください。
+プロジェクトルートに`.env`ファイルを作成し、以下の情報を設定してください。
+- EDINET APIキー
+- DBの設定情報
+   - ユーザー名
+   - パスワード
+   - ホスト
+   - ポート
+   - データベース名
+   - DBのURL
+
 APIキーは、EDINETの公式サイトから取得できます。詳細は[EDINET APIのドキュメント](https://disclosure.edinet-fsa.go.jp/EKW0EZ0015.html)をご参照ください。
 
-```.env
-EDINET_API_KEY="YOUR_EDINET_API_KEY"
+```.env example
+# データベース設定（機密情報）
+DB_USER=YOUR_USER_NAME
+DB_PASSWORD=YOUR_PASSWORD
+DB_HOST=YOUR_HOST
+DB_PORT=YOUR_PORT
+DB_NAME=YOUR_DB
+
+# EDINET API設定
+EDINET_API_KEY=YOUR_EDINET_API_KEY
+
+# アプリケーション設定
+DATABASE_URL=YOUR_DB_URL
 ```
 
 ### 3. Dockerイメージのビルド・起動
