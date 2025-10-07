@@ -12,6 +12,7 @@ from sqlalchemy.types import (
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy import ForeignKey
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 
 
 class Base(DeclarativeBase):
@@ -34,9 +35,11 @@ class Company(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
     updated_at = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=True
+        DateTime(timezone=True), onupdate=func.now() , server_default=func.now(), nullable=True
     )
 
+    # Financial_reportへのリレーション設定
+    reports = relationship("Financial_report", back_populates="company")
 
 class Financial_item(Base):
     """財務項目マスタテーブル"""
@@ -44,23 +47,27 @@ class Financial_item(Base):
     __tablename__ = "financial_items"
     item_id = Column(Integer, primary_key=True, autoincrement=True)
     element_id = Column(String(300), nullable=False, unique=True)
-    item_name = Column(String(300), nullable=False)
+    item_name = Column(String(300), nullable=False, unique=True)
     category = Column(String(50), nullable=True)
     unit_type = Column(String(20), nullable=True)
-    created_at = Column(DateTime(timezone=True),
-                        server_default=func.now(),
-                        nullable=True)
-    updated_at = Column(DateTime(timezone=True),
-                        server_default=func.now(),
-                        nullable=True)
+    created_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=True
+    )
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=True
+    )
 
+    # Financial_dataテーブルへのリレーション
+    data = relationship("Financial_data", back_populates="item")
 
 class Financial_report(Base):
     """財務報告書のマスターテーブル"""
 
     __tablename__ = "financial_reports"
     report_id = Column(Integer, primary_key=True, autoincrement=True)
-    company_id = Column(Integer, ForeignKey("companies.company_id"), nullable=False)
+    company_id = Column(
+        Integer, ForeignKey("companies.company_id"), nullable=False, index=True
+    )
     document_type = Column(String(50), nullable=False)
     fiscal_year = Column(String(4), nullable=False)
     quarter_type = Column(String(10), nullable=True)
@@ -73,6 +80,11 @@ class Financial_report(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
 
+    # Companyテーブルへのリレーション
+    company = relationship("Company", back_populates="reports")
+    # Financial_dataテーブルへのリレーション
+    data = relationship("Financial_data", back_populates="report")
+
 
 class Financial_data(Base):
     """財務情報テーブルのクラス"""
@@ -80,10 +92,12 @@ class Financial_data(Base):
     __tablename__ = "financial_data"
     data_id = Column(BigInteger, primary_key=True, autoincrement=True)
     report_id = Column(
-        Integer, ForeignKey("financial_reports.report_id"), nullable=False
+        Integer, ForeignKey("financial_reports.report_id"), nullable=False, index=True
     )
-    item_id = Column(Integer, ForeignKey("financial_items.item_id"), nullable=False)
-    context_id = Column(String(100), nullable=True)
+    item_id = Column(
+        Integer, ForeignKey("financial_items.item_id"), nullable=False, index=True
+    )
+    context_id = Column(String(300), nullable=True)
     period_type = Column(String(50), nullable=False)
     consolidated_type = Column(String(10), nullable=False)
     duration_type = Column(String(10), nullable=False)
@@ -96,3 +110,8 @@ class Financial_data(Base):
     updated_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
+
+    # Reportsテーブルへのリレーション設定
+    report = relationship("Financial_report", back_populates="data")
+    # Financial_itemテーブルへのリレーション設定
+    item = relationship("Financial_item", back_populates="data")

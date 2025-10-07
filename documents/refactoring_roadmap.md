@@ -1,8 +1,6 @@
 # リファクタリング作業順序ガイド
 
-> **注意：このファイルは「IR分析プロジェクト 完成版ロードマップ・設計方針（統合版）」と同じ現行方針に基づいています。重複・古い設計ではなく、現行設計の補足・実装ガイドとして活用するため、`old`フォルダに移動しないでください。今後もdocuments配下で管理してください。**
-
-提示された3つのドキュメント（`api_refactoring_guide.md`, `app_refactoring_guide.md`, `db_and_sqlalchemy_review.md`）を精査し、リファクタリングの理想的な作業順序を提案します。
+> 本ロードマップは、プロジェクト憲章（`gemini.md`）で定義された原則に基づき、具体的な作業手順を定義するものです。
 
 これらのドキュメントは、現状の課題を解決し、アプリケーションをモダンで保守性の高い3層アーキテクチャ（View, Service, Repository）へと進化させるための、一貫した計画を示しています。
 
@@ -12,7 +10,7 @@
 
 ### **推奨作業順序**
 
-#### **ステップ1: 【基盤】DBモデルの強化**
+#### 【done】**ステップ1: 【基盤】DBモデルの強化** 
 
 最初に、データ構造の核となるモデル定義を強化し、ORMの能力を最大限に引き出す準備をします。これは後続のすべての作業の基礎となります。
 
@@ -20,8 +18,8 @@
     *   モデル間の関連性を定義し、データアクセスを直感的にする。
     *   検索パフォーマンスを向上させる。
 *   **具体的な作業**:
-    1.  `utils/db_models.py` を開き、各モデルクラスに `relationship` を追加して、テーブル間の関連を定義します（例: `Company.reports`, `Financial_report.company`）。
-    2.  頻繁な検索対象となるカラム（`edinet_code`, `element_id`, 外部キーなど）に `index=True` を設定します。
+    ~~1.  `utils/db_models.py` を開き、各モデルクラスに `relationship` を追加して、テーブル間の関連を定義します（例: `Company.reports`, `Financial_report.company`）。~~
+    ~~2.  頻繁な検索対象となるカラム（`edinet_code`, `element_id`, 外部キーなど）に `index=True` を設定します。~~
 *   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`
 
 
@@ -31,12 +29,19 @@
 
 *   **目的**:
     *   DBとの対話ロジックをカプセル化し、テスト容易性を向上させる。
-    *   データアクセス層のインターフェースをモデルオブジェクト中心に統一する。
+    *   将来のDBからの読み取り機能実装に向けた基盤を構築する。
 *   **具体的な作業**:
-    1.  `utils/db_controller.py` を廃止します。
-    2.  `utils/` 配下に `repositories` ディレクトリを新設します。
-    3.  各モデル（`Company`, `Financial_item`等）に対応するRepositoryクラスを `repositories` 内に作成します。
-    4.  各Repositoryに、`find_by_...`, `save`, `get_or_create` (Upsertロジック) といったDB操作メソッドを実装します。
+    ~~1.  `utils/` 配下に `repositories` ディレクトリを新設します。~~
+    ~~2.  `utils/repositories/base_repository.py` を作成し、共通のDBアクセス処理とセッション管理を担う `BaseRepository` クラスを定義します。~~
+    ~~3.  各モデルに対応するRepositoryクラスを `repositories` 内に作成します。~~
+    ~~4.  **`Create` (作成) / `Delete` (削除)** メソッドを実装します。`Update` (更新) はスコープ外とし、単純なInsert処理を実装します。~~
+    ~~5.  すべてのDB書き込み処理がRepositoryに移行した後、`utils/db_controller.py` を廃止します。~~
+    ~~6.  作成した各モデルに対して、unitテストを実施して、バグは修正します。~~
+
+*   **実装方針の詳細**:
+    *   **セッション管理**: RepositoryはコンストラクタでDBセッションを外部から受け取ります（依存性の注入）。これにより、Service層でトランザクションを管理しやすくなります。
+    *   **メソッドの責務**: Repositoryのメソッドは、モデルのオブジェクトを直接引数として受け取り、返り値もモデルオブジェクト（またはそのリスト）とします。
+
 *   **主参照ガイド**: `old/db_and_sqlalchemy_review.md`, `old/api_refactoring_guide.md`
 
 
@@ -45,13 +50,20 @@
 Repositoryが整ったので、それらを利用してビジネスロジックを組み立てるService層を構築します。
 
 *   **目的**:
-    *   複数のDB操作を伴う複雑なビジネスロジック（特にデータ永続化）とトランザクション管理をService層に集約する。
+    *   - `Unit of Work`パターンを導入し、複数のDB操作を伴うビジネスロジックとトランザクション管理をService層から利用できるようにする。
     *   `api.py` の責務を「データマッピング」に限定し、見通しを良くする。
 *   **具体的な作業**:
-    1.  `utils/` 配下に `services` ディレクトリを新設します。
-    2.  `FinancialService` クラスを作成し、`save_financial_bundle` に相当するメソッドを実装します。このメソッド内でRepositoryを呼び出し、一連の永続化処理を単一トランザクションで実行します。
-    3.  `utils/api.py` をリファクタリングし、`_..._mapping` 関数群が辞書ではなくSQLAlchemyモデルオブジェクトを返すように修正します。
-    4.  `api.py` の永続化処理を、`FinancialService` のメソッド呼び出しに置き換えます。
+    ~~1.  `utils/` 配下に `services` ディレクトリを新設します。~~
+    ~~2. `unitofwork`クラスを作成し、Unit of Workパターンの実装を行います。~~ 
+    ~~3. `utils/parser.py` を新設し、`data_mapper.py` から日付・四半期解析のロジックを移植します。~~
+    ~~4. `utils/data_mapper.py` の `map_data_to_models` 関数をリファクタリングし、各モデルのデータを一つの辞書にまとめて返すように責務を明確化します。~~
+    5. `FinancialService` クラスに `save_financial_bundle_from_dataframe` のようなデータ永続化メソッドを実装します。このメソッドは以下の責務を持ちます。
+        - `map_data_to_models` を呼び出して、DataFrameをモデルデータ辞書に変換する。
+        - `UnitOfWork` を通じてトランザクションを管理する。
+        - `FinancialItemRepository` を使って財務項目の存在をチェックし、存在しないものだけを登録する。
+        - `financial_data_mapping`を呼び出し、財務データ行を辞書として取得する。
+        - 各Repositoryの `upsert` や `add` を呼び出し、一連のデータを永続化する。
+    6. `api.py` の永続化処理を、新しく作成した `FinancialService` のメソッド呼び出しに置き換えます。
 *   **主参照ガイド**: `old/api_refactoring_guide.md`
 
 
