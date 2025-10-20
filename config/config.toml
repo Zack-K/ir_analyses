@@ -30,8 +30,6 @@ API_DOWNLOAD = "https://api.edinet-fsa.go.jp/api/v2"
 
 #==============================================================================
 # XBRL要素名とDBモデルのマッピング定義
-# api.pyでのデータ処理で、このマッピング情報を利用して、
-# 横持ちのCSVデータから縦持ちの整形済みデータへ変換し、
 # 各DBモデルに対応するデータを抽出・登録することを想定しています。
 #==============================================================================
 [xbrl_mapping]
@@ -50,23 +48,4 @@ API_DOWNLOAD = "https://api.edinet-fsa.go.jp/api/v2"
     fiscal_year_end = "jpdei_cor:CurrentPeriodEndDateDEI"
     filing_date = "jpcrp_cor:FilingDateCoverPage"
 
-#==============================================================================
-# 補足: financial_items と financial_dataについて
-#
-# financial_items (財務項目マスタ) とfinancial_data (財務データ) テーブルに
-# 格納するデータは、静的なカラムマッピングではなく、縦持ち変換処理の過程で
-# 動的に生成されるため、このTOMLファイルには直接的なマッピングを定義しません。
-#
-# 具体的な処理の流れは以下のようになります。
-#
-# 1. financial_items:
-#    - 縦持ち変換後の「項目ID(element_id)」と「項目名(item_name)」をユニークにして登録します。
-#    - category: XBRLのcontextRefに含まれる"Consolidated" / "NonConsolidated"等から判定します。
-#    - unit_type: XBRLのunitRefに含まれる "JPY" /"USD" 等から判定します。
-#
-# 2. financial_data:
-#    -縦持ち変換後の各行が、financial_dataテーブルの1レコードに相当します。
-#    - value: 項目に対応する値。
-#    - period_type, consolidated_type,duration_type: contextRefから判定・抽出します。
-#
 #==============================================================================
