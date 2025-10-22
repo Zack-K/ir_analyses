@@ -23,9 +23,7 @@ if str(project_root) not in sys.path:
 
 # ページ設定
 st.set_page_config(
-    page_title="IR Analysis App",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="IR Analysis App", layout="wide", initial_sidebar_state="expanded"
 )
 
 # 安全なモジュールインポート
@@ -184,9 +182,15 @@ if financial_summary:
         .mark_bar()
         .encode(
             # X軸を「項目」列を設定
-            x=alt.X("項目", sort=None),
+            x=alt.X(
+                "項目", sort=None, axis=alt.Axis(labelFontSize=20, titleFontSize=20)
+            ),
             # Y軸を「金額」軸に設定し、スケールを「0から始める」ように設定
-            y=alt.Y("金額", scale=alt.Scale(zero=True)),
+            y=alt.Y(
+                "金額",
+                scale=alt.Scale(zero=True),
+                axis=alt.Axis(labelFontSize=20, titleFontSize=20),
+            ),
         )
     )
 
