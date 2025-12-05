@@ -6,7 +6,7 @@
 本プロジェクトはそのためのポートフォリオとして作成しました。  
 技術者の方にはREADMEやソースコードを、そして人事担当の方には以下の紹介用スライドをご用意しています。それぞれ、目的に沿ったものをご覧いただけますと幸いです。  
 
-- [プロジェクト紹介用スライド](https://docs.google.com/presentation/d/1rEBN0oY6_RZf79VKGNgE_eRtQ0Yjt9v3ryQdvnvPVlY/edit?usp=sharing)
+- [プロジェクト紹介用スライド]([https://docs.google.com/presentation/d/1rEBN0oY6_RZf79VKGNgE_eRtQ0Yjt9v3ryQdvnvPVlY/edit?usp=sharing](https://docs.google.com/presentation/d/1pk1N8Uh_W8DNQmTIk4X5j-8eU7gem9kHHa9s0-0PzEo/edit?usp=sharing))
 
 
 ## 2. プロジェクトの目的と背景
