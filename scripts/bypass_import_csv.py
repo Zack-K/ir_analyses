@@ -41,7 +41,7 @@ if __name__ == "__main__":
     bs_url = os.environ.get("DATABASE_URL")
     engine = create_engine(bs_url)
     session_factory = sessionmaker(bind=engine, autoflush=False)
- 
+
     # download配下にあるフォルダーを再帰的に確認、csvファイルをpd.DataFrameに変換
     download_list = glob.glob(f"{download_dir}/**/*.csv", recursive=True)
 
