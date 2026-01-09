@@ -35,11 +35,15 @@ class Company(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
     updated_at = Column(
-        DateTime(timezone=True), onupdate=func.now() , server_default=func.now(), nullable=True
+        DateTime(timezone=True),
+        onupdate=func.now(),
+        server_default=func.now(),
+        nullable=True,
     )
 
     # Financial_reportへのリレーション設定
     reports = relationship("Financial_report", back_populates="company")
+
 
 class Financial_item(Base):
     """財務項目マスタテーブル"""
@@ -59,6 +63,7 @@ class Financial_item(Base):
 
     # Financial_dataテーブルへのリレーション
     data = relationship("Financial_data", back_populates="item")
+
 
 class Financial_report(Base):
     """財務報告書のマスターテーブル"""
