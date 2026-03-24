@@ -51,4 +51,4 @@ if __name__ == "__main__":
                 )
                 print(" -> Saved.")
             else:
-                print(" -> Failed to Fatch data.")
+                print(" -> Failed to Fetch data.")
