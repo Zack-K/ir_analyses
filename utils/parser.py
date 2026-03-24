@@ -41,8 +41,8 @@ def extract_fiscal_year(content: str) -> Optional[str]:
     if match_japanese_year:
         match_japanese_year_end = str(match_japanese_year.group(2))
         convert_result = _convert_japanese_year_to_number(match_japanese_year_end)
-        year_calcurate_result = 2019 + convert_result - 1
-        return str(year_calcurate_result)
+        year_calculate_result = 2019 + convert_result - 1
+        return str(year_calculate_result)
 
     # パターン3: 単純な4桁年度パターン
     pattern_year = r"(\d{4})"
