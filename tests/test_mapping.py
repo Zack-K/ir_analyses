@@ -1,7 +1,6 @@
 import pandas as pd
 import pytest
-from utils import api, ConfigLoader, data_mapper
-from unittest.mock import patch
+from utils import ConfigLoader, data_mapper
 import numpy as np
 
 
@@ -44,6 +43,7 @@ def sample_source_df() -> pd.DataFrame:
     df = pd.DataFrame(data)
     return df
 
+
 @pytest.fixture
 def test_config():
     """
@@ -56,7 +56,9 @@ def test_config():
     return config_data
 
 
-def test_company_mapping_raise_key_error_on_invalid_config(sample_source_df,test_config):
+def test_company_mapping_raise_key_error_on_invalid_config(
+    sample_source_df, test_config
+):
     """
     異常系: _company_mapping - 設定ファイルが不正な場合にKeyErrorを送出する。
 
@@ -68,7 +70,8 @@ def test_company_mapping_raise_key_error_on_invalid_config(sample_source_df,test
     with pytest.raises(KeyError, match="company"):
         data_mapper._company_mapping(sample_source_df, config)
 
-def test_company_mapping_success(sample_source_df,test_config):
+
+def test_company_mapping_success(sample_source_df, test_config):
     """
     正常系: _company_mapping - DataFrameを正しく辞書に変換できる。
     """
@@ -82,7 +85,6 @@ def test_company_mapping_success(sample_source_df,test_config):
 
     # 2. テスト用の設定を読み込み、グローバル変数をパッチする
     # fixtureでテスト用設定の読み込んでいるため、以下の関数呼び出しから直接設定は参照可能
-
 
     # 3. 実際にテスト対象の関数を呼び出す
     result_dict = data_mapper._company_mapping(sample_source_df, test_config)
@@ -125,7 +127,9 @@ def test_financial_report_mapping_success(financial_report_source_df, test_confi
     }
 
     # 3. 実際にテスト対象の関数を呼び出す
-    result_dict = data_mapper._financial_report_mapping(financial_report_source_df, test_config)
+    result_dict = data_mapper._financial_report_mapping(
+        financial_report_source_df, test_config
+    )
 
     # 4. 結果が期待通りか検証する
     assert result_dict == expected_dict
@@ -138,7 +142,9 @@ def test_financial_report_mapping_missing_config_section(
     異常系: _financial_report_mapping - 設定に`financial_report`セクションがない場合にKeyError。
     """
     config = test_config.copy()  # テストごとに独立したコピーを作成
-    del config["xbrl_mapping"]["financial_report"]  # financial_reportセクションを削除して不正な状態にする
+    del config["xbrl_mapping"][
+        "financial_report"
+    ]  # financial_reportセクションを削除して不正な状態にする
     with pytest.raises(KeyError, match="financial_report"):
         data_mapper._financial_report_mapping(financial_report_source_df, config)
 
@@ -152,7 +158,7 @@ def test_financial_report_mapping_missing_fiscal_year_key(
     config_data = test_config.copy()  # テストごとに独立したコピーを作成
     # 必須キーを意図的に削除
     del config_data["xbrl_mapping"]["financial_report"]["fiscal_year_and_quarter"]
-    
+
     with pytest.raises(
         ValueError, match="fiscal_year_and_quarterの値が無効です: 'None"
     ):
@@ -169,9 +175,7 @@ def test_financial_report_mapping_invalid_fiscal_year_value(
     config = test_config.copy()  # テストごとに独立したコピーを作成
 
     df = financial_report_source_df.copy()
-    element_id = config["xbrl_mapping"]["financial_report"][
-        "fiscal_year_and_quarter"
-    ]
+    element_id = config["xbrl_mapping"]["financial_report"]["fiscal_year_and_quarter"]
     # 不正な値で上書き
     df.loc[df["element_id"] == element_id, "value_text"] = invalid_value
     df.loc[df["element_id"] == element_id, "is_numeric"] = False
@@ -184,7 +188,8 @@ def test_financial_report_mapping_invalid_fiscal_year_value(
 
 
 def test_financial_report_mapping_unparsable_string(
-    financial_report_source_df, test_config, 
+    financial_report_source_df,
+    test_config,
 ):
     """
     異常系: _financial_report_mapping - パース対象が不正な形式の文字列の場合にValueError。
@@ -192,9 +197,7 @@ def test_financial_report_mapping_unparsable_string(
     config = test_config.copy()  # テストごとに独立したコピーを作成
 
     df = financial_report_source_df.copy()
-    element_id = config["xbrl_mapping"]["financial_report"][
-        "fiscal_year_and_quarter"
-    ]
+    element_id = config["xbrl_mapping"]["financial_report"]["fiscal_year_and_quarter"]
     unparsable_string = "これはパース不可能な文字列です"
     df.loc[df["element_id"] == element_id, "value_text"] = unparsable_string
 

@@ -5,6 +5,7 @@ FinancialReportRepository固有の機能の両方をテストします。
 $ docker compose exec streamlit_app pytest ./tests/repositories/test_financial_report_repository.py
 ```
 """
+
 import pytest
 
 from utils.db_models import Financial_report, Company

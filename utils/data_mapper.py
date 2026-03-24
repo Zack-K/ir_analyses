@@ -124,7 +124,9 @@ def _company_mapping(source_df: pd.DataFrame, config: dict) -> dict:
     try:
         xbrl_mapping = config.get("xbrl_mapping", {})
         if "company" not in xbrl_mapping:
-            raise KeyError("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
+            raise KeyError(
+                '設定ファイルに["xbrl_mapping"]["company"]の定義が見つかりません。'
+            )
         mapping_dict = xbrl_mapping["company"]
     except KeyError:
         logger.error(
@@ -232,7 +234,9 @@ def _financial_report_mapping(source_df: pd.DataFrame, config: dict) -> dict:
     try:
         xbrl_mapping = config.get("xbrl_mapping", {})
         if "financial_report" not in xbrl_mapping:
-            raise KeyError("設定ファイルに[\"xbrl_mapping\"][\"financial_report\"]の定義が見つかりません。")
+            raise KeyError(
+                '設定ファイルに["xbrl_mapping"]["financial_report"]の定義が見つかりません。'
+            )
         mapping_dict = xbrl_mapping["financial_report"]
     except KeyError:
         logger.error(
