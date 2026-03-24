@@ -1,7 +1,14 @@
 """
-APIの疎通が確認できないため、一時的な措置としてCSVを直接読み込み
-DBに保存するスクリプト
+データベースの初期化およびCSVデータの一括インポートスクリプト。
 
+このスクリプトは以下を順次実行します：
+1. 実行時にテーブルが存在しない場合、定義済みモデルに基づきDDLを実行（初期化）
+2. `download`ディレクトリ内の全CSVファイルを再帰的に検索
+3. 各CSVファイルをPandasのDataFrameに変換し、DBに永続化
+
+主に環境構築時の初回データ導入や、API利用できない環境でのバックアップや復元に利用します。
+
+実行方法：
 $ docker compose exec data_processor env PYTHONPATH=/app python /scripts/bypass_import_csv.py
 """
 
@@ -14,6 +21,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+from utils.db_models import Base
 from utils.service.unitofwork import SqlAlchemyUnitOfWork
 from utils.service.financial_service import FinancialService
 from utils.config_loader import ConfigLoader
@@ -40,6 +48,8 @@ if __name__ == "__main__":
     # db enginとsessionを作成し、uowをインスタンス化
     bs_url = os.environ.get("DATABASE_URL")
     engine = create_engine(bs_url)
+    # DDLを実行してテーブルを作成
+    Base.metadata.create_all(engine)
     session_factory = sessionmaker(bind=engine, autoflush=False)
 
     # download配下にあるフォルダーを再帰的に確認、csvファイルをpd.DataFrameに変換
