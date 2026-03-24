@@ -122,7 +122,10 @@ def _company_mapping(source_df: pd.DataFrame, config: dict) -> dict:
         dict: DataFrameから抽出した`Company`モデルに対応する会社情報の辞書
     """
     try:
-        mapping_dict = config.get("xbrl_mapping", {}).get("company")
+        xbrl_mapping = config.get("xbrl_mapping", {})
+        if "company" not in xbrl_mapping:
+            raise KeyError("設定ファイルに[\"xbrl_mapping\"][\"company\"]の定義が見つかりません。")
+        mapping_dict = xbrl_mapping["company"]
     except KeyError:
         logger.error(
             '設定ファイルに["xbrl_mapping"]["company"]の定義が見つかりません。'
@@ -227,7 +230,10 @@ def _financial_report_mapping(source_df: pd.DataFrame, config: dict) -> dict:
         ValueError: 会計年度や四半期の文字列から値のパースに失敗した場合。
     """
     try:
-        mapping_dict = config.get("xbrl_mapping", {}).get("financial_report")
+        xbrl_mapping = config.get("xbrl_mapping", {})
+        if "financial_report" not in xbrl_mapping:
+            raise KeyError("設定ファイルに[\"xbrl_mapping\"][\"financial_report\"]の定義が見つかりません。")
+        mapping_dict = xbrl_mapping["financial_report"]
     except KeyError:
         logger.error(
             '設定ファイルに["xbrl_mapping"]["financial_report"]の定義が見つかりません。'

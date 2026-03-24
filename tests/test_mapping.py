@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from utils import api
+from utils import api, ConfigLoader, data_mapper
 from unittest.mock import patch
 import numpy as np
 
@@ -44,20 +44,31 @@ def sample_source_df() -> pd.DataFrame:
     df = pd.DataFrame(data)
     return df
 
+@pytest.fixture
+def test_config():
+    """
+    テスト用の設定データを提供するフィクスチャ。
 
-def test_company_mapping_raise_key_error_on_invalid_config(sample_source_df):
+    `config/config.toml`から必要なセクションを抜粋して辞書形式で返す。
+    """
+    config_loader = ConfigLoader("config/config.toml")
+    config_data = config_loader.config
+    return config_data
+
+
+def test_company_mapping_raise_key_error_on_invalid_config(sample_source_df,test_config):
     """
     異常系: _company_mapping - 設定ファイルが不正な場合にKeyErrorを送出する。
 
     `utils.api.config`から`["xbrl_mapping"]["company"]`セクションが存在しない
     状況をシミュレートし、関数が正しく`KeyError`を送出することを検証する。
     """
-    with patch.dict(api.config, {"xbrl_mapping": {}}):
-        with pytest.raises(KeyError):
-            api._company_mapping(sample_source_df)
+    config = test_config.copy()  # テストごとに独立したコピーを作成
+    del config["xbrl_mapping"]["company"]  # companyセクションを削除して不正な状態にする
+    with pytest.raises(KeyError, match="company"):
+        data_mapper._company_mapping(sample_source_df, config)
 
-
-def test_company_mapping_success(sample_source_df, monkeypatch):
+def test_company_mapping_success(sample_source_df,test_config):
     """
     正常系: _company_mapping - DataFrameを正しく辞書に変換できる。
     """
@@ -70,11 +81,11 @@ def test_company_mapping_success(sample_source_df, monkeypatch):
     }
 
     # 2. テスト用の設定を読み込み、グローバル変数をパッチする
-    test_config = api.load_config("config/config.toml")
-    monkeypatch.setattr(api, "config", test_config)
+    # fixtureでテスト用設定の読み込んでいるため、以下の関数呼び出しから直接設定は参照可能
+
 
     # 3. 実際にテスト対象の関数を呼び出す
-    result_dict = api._company_mapping(sample_source_df)
+    result_dict = data_mapper._company_mapping(sample_source_df, test_config)
 
     # 4. 結果が期待通りか検証する
     assert result_dict == expected_dict
@@ -94,76 +105,71 @@ def financial_report_source_df() -> pd.DataFrame:
     csv_path = "documents/test.csv"
     # BOM付きUTF-8ファイルに対応するため 'utf-8-sig' を使用
     raw_df = pd.read_csv(csv_path, encoding="utf-8-sig")
-    processed_df = api.standardize_raw_data(raw_df)
+    processed_df = data_mapper.standardize_raw_data(raw_df)
     return processed_df
 
 
-def test_financial_report_mapping_success(financial_report_source_df, monkeypatch):
+def test_financial_report_mapping_success(financial_report_source_df, test_config):
     """
     正常系: _financial_report_mapping - DataFrameを正しく報告書辞書に変換できる。
     """
     # 1. テスト用の設定を読み込み、グローバル変数をパッチする
-    test_config = api.load_config("config/config.toml")
-    monkeypatch.setattr(api, "config", test_config)
 
     # 2. 期待される結果を定義
     expected_dict = {
         "document_type": "四半期報告書",
-        "fiscal_year_and_quarter": "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)",
         "fiscal_year_end": "2023/12/31",
         "filing_date": "2024/2/9",
-        "company_id": 99,
         "fiscal_year": "2023",
         "quarter_type": "Q3",
     }
 
     # 3. 実際にテスト対象の関数を呼び出す
-    result_dict = api._financial_report_mapping(financial_report_source_df, 99)
+    result_dict = data_mapper._financial_report_mapping(financial_report_source_df, test_config)
 
     # 4. 結果が期待通りか検証する
     assert result_dict == expected_dict
 
 
 def test_financial_report_mapping_missing_config_section(
-    financial_report_source_df, monkeypatch
+    financial_report_source_df, test_config
 ):
     """
     異常系: _financial_report_mapping - 設定に`financial_report`セクションがない場合にKeyError。
     """
-    with patch.dict(api.config, {"xbrl_mapping": {}}, clear=True):
-        with pytest.raises(KeyError):
-            api._financial_report_mapping(financial_report_source_df, 99)
+    config = test_config.copy()  # テストごとに独立したコピーを作成
+    del config["xbrl_mapping"]["financial_report"]  # financial_reportセクションを削除して不正な状態にする
+    with pytest.raises(KeyError, match="financial_report"):
+        data_mapper._financial_report_mapping(financial_report_source_df, config)
 
 
 def test_financial_report_mapping_missing_fiscal_year_key(
-    financial_report_source_df, monkeypatch
+    financial_report_source_df, test_config
 ):
     """
     異常系: _financial_report_mapping - `fiscal_year_and_quarter`キーがない場合にValueError。
     """
-    config_data = api.load_config("config/config.toml")
+    config_data = test_config.copy()  # テストごとに独立したコピーを作成
     # 必須キーを意図的に削除
     del config_data["xbrl_mapping"]["financial_report"]["fiscal_year_and_quarter"]
-    monkeypatch.setattr(api, "config", config_data)
-
+    
     with pytest.raises(
         ValueError, match="fiscal_year_and_quarterの値が無効です: 'None"
     ):
-        api._financial_report_mapping(financial_report_source_df, 99)
+        data_mapper._financial_report_mapping(financial_report_source_df, config_data)
 
 
 @pytest.mark.parametrize("invalid_value", [None, ""])
 def test_financial_report_mapping_invalid_fiscal_year_value(
-    financial_report_source_df, monkeypatch, invalid_value
+    financial_report_source_df, invalid_value, test_config
 ):
     """
     異常系: _financial_report_mapping - パース対象の値がNoneまたは空文字列の場合にValueError。
     """
-    test_config = api.load_config("config/config.toml")
-    monkeypatch.setattr(api, "config", test_config)
+    config = test_config.copy()  # テストごとに独立したコピーを作成
 
     df = financial_report_source_df.copy()
-    element_id = test_config["xbrl_mapping"]["financial_report"][
+    element_id = config["xbrl_mapping"]["financial_report"][
         "fiscal_year_and_quarter"
     ]
     # 不正な値で上書き
@@ -174,20 +180,19 @@ def test_financial_report_mapping_invalid_fiscal_year_value(
     with pytest.raises(
         ValueError, match=f"fiscal_year_and_quarterの値が無効です: '{invalid_value}'"
     ):
-        api._financial_report_mapping(df, 99)
+        data_mapper._financial_report_mapping(df, config)
 
 
 def test_financial_report_mapping_unparsable_string(
-    financial_report_source_df, monkeypatch
+    financial_report_source_df, test_config, 
 ):
     """
     異常系: _financial_report_mapping - パース対象が不正な形式の文字列の場合にValueError。
     """
-    test_config = api.load_config("config/config.toml")
-    monkeypatch.setattr(api, "config", test_config)
+    config = test_config.copy()  # テストごとに独立したコピーを作成
 
     df = financial_report_source_df.copy()
-    element_id = test_config["xbrl_mapping"]["financial_report"][
+    element_id = config["xbrl_mapping"]["financial_report"][
         "fiscal_year_and_quarter"
     ]
     unparsable_string = "これはパース不可能な文字列です"
@@ -196,7 +201,7 @@ def test_financial_report_mapping_unparsable_string(
     with pytest.raises(
         ValueError, match=f"会計年度の抽出に失敗しました: '{unparsable_string}'"
     ):
-        api._financial_report_mapping(df, 99)
+        data_mapper._financial_report_mapping(df, config)
 
 
 # --- financial_item_mappingのテスト ---
@@ -211,7 +216,7 @@ def test_financial_item_mapping_success(financial_report_source_df):
     - 各項目が正しいキー(`element_id`, `item_name`, `unit_type`, `category`)を持つこと。
     - 特定の項目(`Assets`)の値が期待通りであること。
     """
-    result_list = api._financial_item_mapping(financial_report_source_df)
+    result_list = data_mapper._financial_item_mapping(financial_report_source_df)
 
     # 期待されるキーがすべて存在するか
     expected_keys = {"element_id", "item_name", "unit_type", "category"}
@@ -240,7 +245,7 @@ def test_financial_item_mapping_empty_df():
     empty_df = pd.DataFrame(
         columns=["element_id", "item_name_jp", "consolidated_type", "unit_id"]
     )
-    result = api._financial_item_mapping(empty_df)
+    result = data_mapper._financial_item_mapping(empty_df)
     assert result == []
 
 
@@ -264,7 +269,7 @@ def test_financial_item_mapping_category_logic(consolidated_type, expected_categ
         "unit_id": ["JPY"],
     }
     df = pd.DataFrame(test_data)
-    result = api._financial_item_mapping(df)
+    result = data_mapper._financial_item_mapping(df)
     assert len(result) == 1
     assert result[0]["category"] == expected_category
 
@@ -275,4 +280,4 @@ def test_financial_item_mapping_missing_column(financial_report_source_df):
     """
     df_missing_column = financial_report_source_df.drop(columns=["item_name_jp"])
     with pytest.raises(KeyError):
-        api._financial_item_mapping(df_missing_column)
+        data_mapper._financial_item_mapping(df_missing_column)
