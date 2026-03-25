@@ -22,6 +22,9 @@ from .service.unitofwork import UnitOfWork, SqlAlchemyUnitOfWork
 # --- Configuration ---
 from .config_loader import ConfigLoader
 
+# --- Data Mapper ---
+from . import data_mapper 
+
 # --- Database Models ---
 from .db_models import Base, Company, Financial_report, Financial_item, Financial_data
 
@@ -37,6 +40,8 @@ __all__ = [
     "SqlAlchemyUnitOfWork",
     # config
     "ConfigLoader",
+    # data_mapper
+    "data_mapper",
     # db_models
     "Base",
     "Company",

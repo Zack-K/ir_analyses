@@ -110,7 +110,7 @@ sequenceDiagram
 ---
 
 ## 6. ディレクトリ構造の役割
-```
+```text
 utils/
 ├── api.py              # EDINET APIとの通信・ファイル取得
 ├── config_loader.py    # config.tomlの安全な読み込み
