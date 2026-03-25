@@ -4,18 +4,20 @@
 XBRLデータから特定の情報（会計年度、四半期など）を抽出するための、
 再利用可能な関数を提供します。
 """
+
 import logging
 import unicodedata
 import re
-from typing import Optional, Match
+from typing import Optional
 
 logger = logging.getLogger(__name__)
+
 
 def extract_fiscal_year(content: str) -> Optional[str]:
     """
     実際のXBRLデータ形式に対応した会計年度抽出
 
-    例: 
+    例:
     1. 西暦
     "第121期 第３四半期(自  2023年10月１日  至  2023年12月31日)"
     2. 和暦
@@ -31,14 +33,16 @@ def extract_fiscal_year(content: str) -> Optional[str]:
         # 通常、会計年度は終了年度を使用
         return str(end_year)
 
-    #パターン2: 和暦を抽出し、変換
-    pattern_japanese_year = r"自\s*令和(元|\d+|[０-９]+)年.*?至\s*令和(元|\d+|[０-９]+)年"
+    # パターン2: 和暦を抽出し、変換
+    pattern_japanese_year = (
+        r"自\s*令和(元|\d+|[０-９]+)年.*?至\s*令和(元|\d+|[０-９]+)年"
+    )
     match_japanese_year = re.search(pattern_japanese_year, content)
     if match_japanese_year:
         match_japanese_year_end = str(match_japanese_year.group(2))
         convert_result = _convert_japanese_year_to_number(match_japanese_year_end)
-        year_calcurate_result = 2019 + convert_result -1
-        return str(year_calcurate_result)
+        year_calculate_result = 2019 + convert_result - 1
+        return str(year_calculate_result)
 
     # パターン3: 単純な4桁年度パターン
     pattern_year = r"(\d{4})"
@@ -53,7 +57,7 @@ def extract_fiscal_year(content: str) -> Optional[str]:
     return None
 
 
-def _convert_japanese_year_to_number(content:str) -> int:
+def _convert_japanese_year_to_number(content: str) -> int:
     """
     和暦として送られてきたデータを西暦の数字に変換して返却
     """
@@ -61,8 +65,9 @@ def _convert_japanese_year_to_number(content:str) -> int:
         return_value = 1
         return return_value
     else:
-        return_value = unicodedata.normalize('NFKC', content)
+        return_value = unicodedata.normalize("NFKC", content)
         return int(return_value)
+
 
 def extract_quarter_type(content: str) -> Optional[str]:
     """
@@ -124,4 +129,3 @@ def convert_quarter_to_number(quarter_text: str) -> Optional[int]:
     except ValueError:
         logger.warning("四半期文字列の変換に失敗しました: '%s'", quarter_text)
         return None
-    

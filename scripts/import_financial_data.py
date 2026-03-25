@@ -49,6 +49,6 @@ if __name__ == "__main__":
                 service.save_financial_data_from_dataframe(
                     single_company_df, config_data
                 )
-                print(f" -> Saved.")
+                print(" -> Saved.")
             else:
-                print(f" -> Failed to Fatch data.")
+                print(" -> Failed to Fetch data.")

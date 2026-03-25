@@ -1,4 +1,10 @@
 # IR分析・ETLプロジェクト
+![Python](https://img.shields.io/badge/-Python%203.12-brightgreen?logo=python&logoColor=white&style=flat-square) |
+![Streamlit](https://img.shields.io/badge/-Streamlit-orange?logo=streamlit&logoColor=white&style=flat-square) |
+![PostgreSQL](https://img.shields.io/badge/-PostgreSQL%2015-336791?logo=postgresql&logoColor=white&style=flat-square) |
+![Docker](https://img.shields.io/badge/-Docker-2496ED?logo=docker&logoColor=white&style=flat-square) |
+![Ruff](https://img.shields.io/badge/-Ruff-000000?logo=python&logoColor=white&style=flat-square) |
+![uv](https://img.shields.io/badge/-uv-61dafb?logo=python&logoColor=white&style=flat-square) |
 
 ## 1. はじめに
 こんにちは、島崎啓一と申します。

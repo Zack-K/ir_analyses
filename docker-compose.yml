@@ -4,9 +4,10 @@ services:
     ports:
       - "8501:8501"
     volumes:
-      - ./config:/config:ro  # 設定ファイル用（次のステップで使用）
+      - ./config:/app/config:ro  # 設定ファイル用（次のステップで使用）
       - ./utils:/app/utils:ro
       - ./tests:/app/tests:ro  
+      - ./documents:/app/documents:ro  # test.csvを配置するためのボリュームマウント
     depends_on:
       - db
     env_file:
@@ -49,7 +50,7 @@ services:
   db:
     image: postgres:15-alpine  # より軽量で新しいバージョン
     environment:
-      POSTGRES_DB: mydatabase
+      POSTGRES_DB: mydatabase_test
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
       LANG: C.UTF-8

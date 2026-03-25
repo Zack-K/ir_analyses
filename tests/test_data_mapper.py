@@ -26,9 +26,9 @@ def financial_data():
 def test_standardize_raw_data_handles_hyphen(financial_data):
     processed_df = standardize_raw_data(financial_data)
 
-    excepted_value = 100.0
+    expected_value = 100.0
     # 正常系：100は100.0と正しく変換されていること
-    assert processed_df["value"].iloc[0] == excepted_value
+    assert processed_df["value"].iloc[0] == expected_value
     # 正常系： "－" 値はNaNとなること
     assert pd.isna(processed_df["value"].iloc[1])
     # 正常系："－"は数値型でないこと Falseであること
@@ -46,7 +46,7 @@ def test_financial_data_mapping_converts_nan_to_non():
             "context_id": ["c1", "c2"],
             "period_type": ["期間A", "期間B"],
             "consolidated_type": ["連結", "連結"],
-            "is_numeric": ["True", "False"],
+            "is_numeric": [True, False],
         }
     )
     test_report_id = 1

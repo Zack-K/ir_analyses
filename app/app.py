@@ -26,14 +26,6 @@ st.set_page_config(
     page_title="IR Analysis App", layout="wide", initial_sidebar_state="expanded"
 )
 
-# 安全なモジュールインポート
-try:
-    import utils.api as api
-except ImportError as e:
-    st.error(f"モジュールのインポートに失敗しました: {e}")
-    st.info("プロジェクトルートから 'streamlit run app/app.py' で実行してください")
-    st.stop()
-
 # 標準loggerの導入
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levellevel)s - %(message)s"

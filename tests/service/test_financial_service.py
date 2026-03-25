@@ -90,6 +90,5 @@ def test_save_financial_data_from_dataframe(mocker):
     mock_uow.financial_reports.upsert.assert_called_once()
     mock_uow.financial_data.add.assert_called_once()
     assert mock_uow.session.flush.call_count == 3
-    
+
     # どのようなデータでメソッドが呼ばれているのかを確認
-    

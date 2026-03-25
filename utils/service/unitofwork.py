@@ -7,6 +7,7 @@
 Service層は、このモジュールが提供するUnit of Workを通じて、
 データベースとの対話を安全かつ一貫性のある形で行います。
 """
+
 import logging
 from abc import ABC, abstractmethod
 from types import TracebackType

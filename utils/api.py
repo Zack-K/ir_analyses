@@ -65,10 +65,12 @@ def get_company_list(submiting_date: str, config: dict) -> pd.DataFrame | None:
         docs_submitted_json = response.json()
     except requests.exceptions.RequestException as e:
         if e.response is not None:
-            logger.error("APIリクエストでエラー: status_code =%s, response=%s, error=%s",  
-                         e.response.status_code,
-                         e.response.text,
-                         e)
+            logger.error(
+                "APIリクエストでエラー: status_code =%s, response=%s, error=%s",
+                e.response.status_code,
+                e.response.text,
+                e,
+            )
         else:
             logger.error("APIリクエストでエラー: %s", e)
         return None
@@ -81,7 +83,10 @@ def get_company_list(submiting_date: str, config: dict) -> pd.DataFrame | None:
             ]
             return sd_df
         else:
-            logger.error("APIレスポンスに'results'キーがありません。 API Response:%s", docs_submitted_json)
+            logger.error(
+                "APIレスポンスに'results'キーがありません。 API Response:%s",
+                docs_submitted_json,
+            )
             return None
     except (ValueError, KeyError) as e:
         logger.error("データフレーム変換時にエラー: %s", e)
