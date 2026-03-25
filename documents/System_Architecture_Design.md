@@ -187,6 +187,7 @@ docker compose down
 - DB名が `_test` で終わることを検証
 - `Base.metadata.create_all()` でテーブル作成
 - テスト終了後に `drop_all()` でスキーマ削除
+```bash
   python /scripts/bypass_import_csv.py --init-only
 ```
 
