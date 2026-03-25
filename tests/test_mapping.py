@@ -1,7 +1,10 @@
+from pathlib import Path
 import pandas as pd
 import pytest
 from utils import ConfigLoader, data_mapper
 import numpy as np
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 # テスト用のDataFrameを準備する
@@ -51,7 +54,7 @@ def test_config():
 
     `config/config.toml`から必要なセクションを抜粋して辞書形式で返す。
     """
-    config_loader = ConfigLoader("config/config.toml")
+    config_loader = ConfigLoader(str(PROJECT_ROOT / "config" / "config.toml"))
     config_data = config_loader.config
     return config_data
 
@@ -104,7 +107,8 @@ def financial_report_source_df() -> pd.DataFrame:
     `documents/test.csv`を読み込み、`standardize_raw_data`を適用する。
     モジュールスコープで実行され、テストセッション中に一度だけ生成される。
     """
-    csv_path = "documents/test.csv"
+
+    csv_path = str(PROJECT_ROOT / "documents" / "test.csv")
     # BOM付きUTF-8ファイルに対応するため 'utf-8-sig' を使用
     raw_df = pd.read_csv(csv_path, encoding="utf-8-sig")
     processed_df = data_mapper.standardize_raw_data(raw_df)
