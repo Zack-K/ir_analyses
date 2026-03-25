@@ -120,3 +120,89 @@ utils/
 ├── repositories/       # データアクセス層（Repository）
 └── service/            # ビジネスロジック層（Service, UoW）
 ```
+---
+
+## 7. テスト環境の分離とテスト実行フロー
+
+### 7.1. テスト環境の分離原則
+本システムでは、**本番環境とテスト環境を厳密に分離**し、以下の原則に従っています：
+
+- **独立したDB**: テスト用に `mydatabase_test` を使用
+- **DB名による安全性確保**: `_test` サフィックス必須
+- **環境変数による制御**: `DB_NAME_TEST` を分離
+- **自動クリーンアップ**: テスト完了後、`drop_all` でスキーマ削除
+
+### 7.2. conftest.py フィクスチャ設計
+- `engine` (scope=session): 環境変数チェック、`_test` 判定、`Base.metadata.create_all`、`drop_all`。
+- `db_session` (scope=function): 各テスト前のデータ削除、コミット/ロールバック管理。
+
+### 7.3. docker-compose テスト環境立ち上げコマンド
+テスト環境では、`docker-compose.yml` を使用してテスト用 DB （`mydatabase_test`）を分離起動します。
+
+#### 実行手順（推奨フロー）
+
+**ステップ1：テスト環境の起動**
+```bash
+# Linux/macOS
+docker compose up --build -d
+
+# Windows PowerShell
+docker compose up --build -d
+```
+
+**ステップ2：DB スキーマ初期化（conftest.py 自動処理）**
+スキーマ初期化は `conftest.py` の `engine` フィクスチャが自動で処理するため、手動実行は不要です。
+
+**ステップ3：テスト実行**
+```bash
+# Linux/macOS
+docker compose exec streamlit_app pytest tests/
+
+# Windows PowerShell
+docker compose exec -T streamlit_app pytest tests/
+```
+
+**ステップ4：クリーンアップ**
+```bash
+docker compose down
+```
+
+> 詳細は [TEST_EXECUTION_GUIDE.md](../TEST_EXECUTION_GUIDE.md) を参照してください。
+
+
+### 7.4. テスト実行フェーズ
+1. テスト用DB起動（`db`コンテナ）
+2. `conftest.py::engine` フィクスチャ実行、テスト環境のDBスキーマ作成
+3. `pytest tests/` 実行
+4. `conftest.py` で `create_all` → 各テストで `db_session` → `rollback` → 最後に `drop_all`
+5. コンテナ停止・削除 (or CIの`down`)
+
+### 7.5. `conftest.py` の活用（テスト初期化）
+`conftest.py` は、テスト実行時に自動的にDBスキーマを初期化し、クリーンアップするフィクスチャを提供します。
+
+#### 7.5.1. `engine` フィクスチャ (scope=session)
+テストセッション開始時に、**スキーマを初期化** し、終了時に削除します：
+
+- `.env` から `DB_NAME_TEST=mydatabase_test` を取得
+- DB名が `_test` で終わることを検証
+- `Base.metadata.create_all()` でテーブル作成
+- テスト終了後に `drop_all()` でスキーマ削除
+  python /scripts/bypass_import_csv.py --init-only
+```
+
+このオプションにより、テスト環境の準備時間を短縮でき、各テスト実行時に `conftest.py` の `engine` フィクスチャが再度スキーマを作成することと組み合わせて、**完全にクリーンなテスト環境** を実現します。
+
+#### 7.5.2. `db_session` フィクスチャ (scope=function)
+各テスト関数実行前に、**データをクリーン** にし、独立性を確保します：
+
+- 既存データをすべて削除（`DELETE FROM` クエリ）
+- 新しいセッションを提供
+- テスト終了時に自動ロールバック
+
+#### 7.5.3. 実装詳細
+- `conftest.py` で `load_dotenv()` を実行
+- `DB_NAME_TEST` 環境変数を取得し、`_test` サフィックスを検証
+- `engine` フィクスチャで `Base.metadata.create_all()` を実行
+- テスト終了時に `Base.metadata.drop_all()` でスキーマ削除
+- ログレベルを `logger.info()` で統一し、実行状況を可視化
+
