@@ -7,7 +7,6 @@
 ![uv](https://img.shields.io/badge/-uv-61dafb?logo=python&logoColor=white&style=flat-square) |
 
 ## 1. はじめに
-こんにちは、島崎啓一と申します。
 現在、[就労移行支援事業所Neuro Dive](https://neuro-diversity.biz/)での訓練を通じてデータエンジニアやインフラエンジニア等の職種にキャリアチェンジを目指しています。  
 本プロジェクトはそのためのポートフォリオとして作成しました。  
 技術者の方にはREADMEやソースコードを、そして人事担当の方には以下の紹介用スライドをご用意しています。それぞれ、目的に沿ったものをご覧いただけますと幸いです。  
